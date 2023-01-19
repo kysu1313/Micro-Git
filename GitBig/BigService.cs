@@ -20,6 +20,7 @@ public class BigService
         { "[violet]-c <message>, --commit <message>[/]", "[violet]Commit the selected repos (stages changes) with <message> commit message #.[/]" },
         { "[deeppink3]-b, --branch[/]", "[deeppink3]Create new branch for selected repos #.[/]" },
         { "[lightsalmon3_1]-bc, --branch-checkout[/]", "[lightsalmon3_1]Create new branch and check it out for selected repos #.[/]" },
+        { "[deeppink3]-bcsp, --branch-checkout-stage-push[/]", "[deeppink3]Create new branch for selected repos, checkout branch, stage all and push #.[/]" },
         { "[purple]-dr, --dir <path>[/]", "[purple]Set the directory to search from #.[/]" },
         { "[yellow]-h, --help[/]", "[yellow]Show command table #.[/]" },
         { "[red]-e, --exit <#>[/]", "[red]Exit[/]" },
@@ -122,6 +123,10 @@ public class BigService
             case "--branch-checkout":
             case "-bc":
                 BranchState(true);
+                break;
+            case "--branch-checkout-stage-push":
+            case "-bcsp":
+                BranchState(true, true, true);
                 break;
             case "--help":
             case "-h":
@@ -229,7 +234,7 @@ public class BigService
         AnsiConsole.Write(root);
     }
 
-    private void BranchState(bool shouldCheckout = false)
+    private void BranchState(bool shouldCheckout = false, bool shouldStageAll = false, bool shouldPush = false)
     {
         try
         {
@@ -247,6 +252,7 @@ public class BigService
                 return;
             }
             
+            bool didCheckout = false;
             foreach (var (repo, branch) in _stateModel.branchQueue)
             {
                 using var repository = new Repository(repo);
@@ -265,6 +271,7 @@ public class BigService
                 
                 if (shouldCheckout && newBranch != null)
                 {
+                    didCheckout = true;
                     Commands.Checkout(repository, newBranch);
                 }
             }
@@ -274,6 +281,7 @@ public class BigService
                 var shouldCheckoutBranch = YesNoSelectPrompt($"Do you want to checkout the branch {branchName} for all repos?");
                 if (string.Equals(shouldCheckoutBranch.First(), "Yes", StringComparison.OrdinalIgnoreCase))
                 {
+                    didCheckout = true;
                     foreach (var (repo, branch) in _stateModel.branchQueue)
                     {
                         using var repository = new Repository(repo);
@@ -290,6 +298,44 @@ public class BigService
                 AnsiConsole.Markup($"[green]Branch {branchName} created and checked out successfully for the following repos:[/]\n");
                 _stateModel.branchQueue.ToList().ForEach(x => AnsiConsole.Markup($"[green]{x.Key}[/]\n"));
             }
+            
+            if (shouldStageAll)
+            {
+                foreach (var (repo, branch) in _stateModel.branchQueue)
+                {
+                    using var repository = new Repository(repo);
+                    var status = repository.RetrieveStatus();
+                    if (status.IsDirty)
+                    {
+                        Commands.Stage(repository, "*");
+                    }
+                }
+            }
+            
+            if (shouldPush)
+            {
+                foreach (var (repo, branch) in _stateModel.branchQueue)
+                {
+                    using var repository = new Repository(repo);
+                    var status = repository.RetrieveStatus();
+                    if (status.IsDirty)
+                    {
+                        Commands.Stage(repository, "*");
+                    }
+                    var authorName = repository.Config.Get<string>("user.name").Value;
+                    var author = new Signature(authorName, "na", DateTimeOffset.Now);
+                    repository.Commit($"Auto commit for branch {branchName}", author, author);
+                    repository.Network.Push(repository.Head, new PushOptions
+                    {
+                        // CredentialsProvider = (url, usernameFromUrl, types) => new UsernamePasswordCredentials
+                        // {
+                        //     Username = _stateModel.username,
+                        //     Password = _stateModel.password
+                        // }
+                    });
+                }
+            }
+
         }
         catch (Exception e)
         {
