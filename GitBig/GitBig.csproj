@@ -9,7 +9,9 @@
 
     <ItemGroup>
       <PackageReference Include="LibGit2Sharp" Version="0.27.0-preview-0182" />
-      <PackageReference Include="Spectre.Console" Version="0.46.1-preview.0.2" />
+      <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="7.0.0" />
+      <PackageReference Include="Spectre.Console" Version="0.46.0" />
+      <PackageReference Include="Spectre.Console.Cli" Version="0.46.0" />
     </ItemGroup>
 
 </Project>
