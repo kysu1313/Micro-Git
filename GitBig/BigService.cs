@@ -6,46 +6,70 @@ namespace GitBig;
 
 public class BigService
 {
-
-    private Dictionary<string, string> _commands = new () {
+    private Dictionary<string, string> _commonCommands = new()
+    {
+        { "", "" },
+        { "Frequently Used Commands", "-------------------------------------------------------------------" },
+        { "[palegreen1_1]-cr, --creds[/]", "[palegreen1_1]Set your GIT login credentials! (Required to push)[/]" },
+        { "[deeppink3]-c <message>, --commit <message>[/]", "[deeppink3]Commit the selected repos (stages ALL changes) with <message> commit message #.[/]" },
+        { "[paleturquoise1]-d, --details[/]", "[paleturquoise1]Show details of the repo #.[/]" },
+        { "[lightsalmon3_1]-bc, --branch-checkout[/]", "[lightsalmon3_1]Create new branch and check it out for selected repos #.[/]" },
+        { "[magenta2]-th, --token-help[/]", "[magenta2]Show instructions on how to create a Personal Access Token for GitHub #.[/]" },
+        { "[purple]-dr, --dir <path>[/]", "[purple]Set the directory to search from #.[/]" },
+        { "[red]-e, --exit <#>[/]", "[red]Exit[/]" },
+    };
+    private Dictionary<string, string> _commands = new () 
+    {
+        { "", "" },
+        { "Additional Commands", "-------------------------------------------------------------------" },
+        { "[deeppink3]-b, --branch[/]", "[deeppink3]Create new branch for selected repos #.[/]" },
         { "[green]-f, --find[/]", "[green]Find all GIT repos in current folder.[/]" },
-        // { "[blue]-a <#>, --add <#>[/]", "[blue]Add the repo # to commit queue.[/]" },
-        { "[lightskyblue3_1]-d, --details[/]", "[lightskyblue3_1]Show details of the repo #.[/]" },
-        { "[deeppink4_2]-dv, --details-verbose[/]", "[deeppink4_2]Show all details of the repo #.[/]" },
+        { "[mistyrose1]-sd, --show-diff[/]", "[mistyrose1]Show diff against <branch name> or remote if <branch name> not specified #.[/]" },
+        { "[deeppink4_2]-dv, --details-verbose[/]", "[deeppink4_2]Show verbose details of the repo #.[/]" },
         { "[yellow4_1]-sr, --show-repo-queue[/]", "[yellow4_1]Show found repos #.[/]" },
         { "[sandybrown]-sc, --show-commit-queue[/]", "[sandybrown]Show current commit queue #.[/]" },
         { "[deeppink1_1]-sb, --show-branch-queue[/]", "[deeppink1_1]Show current branch queue #.[/]" },
-        { "[mistyrose1]-sd, --show-diff[/]", "[mistyrose1]Show diff against <branch name> or remote if <branch name> not specified #.[/]" },
         { "[gold3]-se, --select[/]", "[gold3]Select repos to commit #.[/]" },
-        { "[violet]-c <message>, --commit <message>[/]", "[violet]Commit the selected repos (stages changes) with <message> commit message #.[/]" },
-        { "[deeppink3]-b, --branch[/]", "[deeppink3]Create new branch for selected repos #.[/]" },
-        { "[lightsalmon3_1]-bc, --branch-checkout[/]", "[lightsalmon3_1]Create new branch and check it out for selected repos #.[/]" },
         { "[deeppink3]-bcsp, --branch-checkout-stage-push[/]", "[deeppink3]Create new branch for selected repos, checkout branch, stage all and push #.[/]" },
-        { "[purple]-dr, --dir <path>[/]", "[purple]Set the directory to search from #.[/]" },
         { "[yellow]-h, --help[/]", "[yellow]Show command table #.[/]" },
-        { "[red]-e, --exit <#>[/]", "[red]Exit[/]" },
+        { "[red]-e, --exit[/]", "[red]Exit (Also ctrl + c)[/]" },
     };
     private StateModel _stateModel;
     private string _dir;
+    private ConfigManager _configManager;
 
     public BigService()
     {
-        AnsiConsole.Markup("[underline red]MICRO-GIT[/]\n");
+        Console.CancelKeyPress += delegate {
+            Environment.Exit(0);
+        };
+        
+        AnsiConsole.Write(
+            new FigletText("MICRO-GIT")
+                .Color(Color.Red));
+        AnsiConsole.Markup("[bold yellow]NOTE: In order to fetch / push to private GitHub repos you need to supply a Personal Access Token with the \"repo\" scope![/]\n");
         _stateModel = new StateModel();
+        _configManager = new ConfigManager();
         DrawTable();
     }
 
     public void DrawTable()
     {
         var table = new Table();
-        table.AddColumn("Command");
-        table.AddColumn("Description");
+        table.Border(TableBorder.Rounded);
+        var cmdCol = table.AddColumn("Command");
+        var descCol = table.AddColumn("Description");
+        cmdCol.Alignment = Justify.Left;
+        descCol.Alignment = Justify.Left;
+
+        _commonCommands.ToList().ForEach(x => table.AddRow(new Markup(x.Key), new Markup(x.Value)));
         _commands.ToList().ForEach(x => table.AddRow(new Markup(x.Key), new Markup(x.Value)));
         AnsiConsole.Write(table);
     }
 
     public void MainLoop()
     {
+        //TODO: Remove this path
         _dir = "C:\\Users\\ksups\\PROGRAMS\\JS";//Directory.GetCurrentDirectory();
         FindState(_dir);
         
@@ -76,6 +100,10 @@ public class BigService
         
         switch (args[0])
         {
+            case "--creds":
+            case "-cr":
+                GetCredentials();
+                break;
             case "--find":
             case "-f":
                 FindState(_dir);
@@ -133,11 +161,33 @@ public class BigService
                 DrawTable();
                 break;
             case "--exit":
+            case "-e":
                 return;
             default:
                 AnsiConsole.Markup("[red]I didn't understand that.[/]\n");
                 break;
         }
+    }
+
+    private void GetCredentials()
+    {
+        var saveCreds = YesNoSelectPrompt("Do you want to save your credentials? (Recommended) They will be encrypted.");
+        bool shouldSave = saveCreds.First() == "Yes";
+        AnsiConsole.Markup("[green]Enter your GIT username[/]");
+        AnsiConsole.Markup("[green]Username: [/]");
+        var username = Console.ReadLine();
+        AnsiConsole.Markup("[green]Enter your GIT Personal Access Token[/]\n");
+        AnsiConsole.Markup("[red]Your token must have the \"repo\" scope in order to push to private repos.[/]\n");
+        AnsiConsole.Markup("[red]---If you're not sure how to get this, \n---check out the instructions at the link below: \nhttps://docs.github.com/en/enterprise-server@3.4/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token[/]");
+        AnsiConsole.Markup("\n[green]Token: [/]");
+        var password = Utils.GetPassword();
+        if (string.IsNullOrEmpty(password))
+        {
+            AnsiConsole.Markup("[green]No password provided. :([/]\n");
+        }
+        Console.WriteLine();
+        _configManager.SetCreds(username ?? "", password ?? "", shouldSave);
+        AnsiConsole.Markup("[green]Credentials set successfully![/]\n");
     }
 
     private void SetDirectory(IReadOnlyList<string> args)
@@ -154,31 +204,33 @@ public class BigService
 
     private void CommitChanges(IReadOnlyList<string> args)
     {
-        if (args.Count == 1)
+        
+        if (string.IsNullOrEmpty(_configManager.GetUsername()) || 
+            string.IsNullOrEmpty(_configManager.GetPersonalAccessToken()))
         {
-            AnsiConsole.Markup("[red]No commit message provided[/]");
+            AnsiConsole.Markup("[red]No credentials set. Use --creds or -cr to set credentials[/]\n");
             return;
         }
         
         if (_stateModel.commitQueue.Count == 0)
         {
-            AnsiConsole.Markup("[red]No repos selected[/]\n");
-            return;
+            SelectState();
         }
         
         var commitMessage = string.Join(" ", args.Skip(1));
         
         if (string.IsNullOrEmpty(commitMessage))
         {
-            AnsiConsole.Markup("[red]No commit message provided[/]\n");
-            return;
+            AnsiConsole.Markup("[red]Please enter a commit message[/]: ");
+            commitMessage = Console.ReadLine();
         }
 
         foreach (var repo in _stateModel.commitQueue)
         {
             using var repository = new Repository(repo);
             var status = repository.RetrieveStatus();
-            var files = status.Where(x => x.State is FileStatus.ModifiedInWorkdir or FileStatus.NewInWorkdir).ToList();
+            var files = status.Modified.Select(mods => mods.FilePath).ToList();
+
             if (files.Count == 0)
             {
                 AnsiConsole.Markup($"[red]{repo}[/] [yellow]has no changes to commit[/]\n");
@@ -191,6 +243,8 @@ public class BigService
                 var authorName = repository.Config.Get<string>("user.name").Value;
                 var author = new Signature(authorName, "na", DateTimeOffset.Now);
                 repository.Commit(commitMessage, author, author);
+                RepoService.PushChanges(repository, _configManager);
+                AnsiConsole.Markup($"[green]{repo}[/] [yellow]committed successfully![/]\n");
             }
         }
     }
@@ -327,11 +381,11 @@ public class BigService
                     repository.Commit($"Auto commit for branch {branchName}", author, author);
                     repository.Network.Push(repository.Head, new PushOptions
                     {
-                        // CredentialsProvider = (url, usernameFromUrl, types) => new UsernamePasswordCredentials
-                        // {
-                        //     Username = _stateModel.username,
-                        //     Password = _stateModel.password
-                        // }
+                        CredentialsProvider = (url, usernameFromUrl, types) => new UsernamePasswordCredentials
+                        {
+                            Username = _configManager.GetUsername(),
+                            Password = _configManager.GetPersonalAccessToken()
+                        }
                     });
                 }
             }
@@ -375,26 +429,32 @@ public class BigService
         // Create the tree
         var root = new Tree("Repository Details");
         
-        var colors = new [] { "red", "green", "yellow", "blue", "magenta", "cyan", "white" };
+        var colors = new [] { "red", "palegreen1_1", "darkorange3_1", "gold3_1", "deeppink1_1", "lightsalmon1", "paleturquoise1" };
         var random = new Random();
 
         foreach (var repo in _stateModel.repos)
         {
+            
+            using var repository = new Repository(repo);
+            var status = repository.RetrieveStatus();
+            var files = status.Modified.Select(mods => mods.FilePath).ToList();
+            
             var details = RepoService.GetRepoDetails(repo);
             // get random color
             var color = colors[random.Next(0, colors.Length)];
             var repoNode = root.AddNode($"[{color}]{details.Info.Path}[/]");
-            var branches = repoNode.AddNode($"[{color}]Branches: {details.Branches.Count()}[/]");
-            var localBranch = repoNode.AddNode($"[{color}]Local Branch: {details.Branches.First().FriendlyName}[/]");
-            var head = repoNode.AddNode($"[{color}]Head: {details.Head.RemoteName}[/]");
-            var stashes = repoNode.AddNode($"[{color}]Stashes: {details.Stashes.Count()}[/]");
-            var conflicts = repoNode.AddNode($"[{color}]Conflicts: {details.Index.Conflicts.Count()}[/]");
+            var filesChanged = repoNode.AddNode($"[red3_1]Files Changed: {files.Count}[/]");
+            var conflicts = repoNode.AddNode($"[deeppink3]Conflicts: {details.Index.Conflicts.Count()}[/]");
+            var localBranch = repoNode.AddNode($"[deeppink3_1]Local Branch: {details.Branches.First().FriendlyName}[/]");
+            var branches = repoNode.AddNode($"[magenta3_1]Branches: {details.Branches.Count()}[/]");
+            var stashes = repoNode.AddNode($"[magenta2]Stashes: {details.Stashes.Count()}[/]");
+            var head = repoNode.AddNode($"[hotpink2]Head: {details.Head.RemoteName}[/]");
 
             if (verbose)
             {
-                head.AddNode($"[{color}]Canonica lName: {details.Head.CanonicalName}[/]");
-                head.AddNode($"[{color}]Friendly Name: {details.Head.FriendlyName}[/]");
-                head.AddNode($"[{color}]Is Remote: {details.Head.IsRemote}[/]");
+                head.AddNode($"[hotpink2]Canonica lName: {details.Head.CanonicalName}[/]");
+                head.AddNode($"[hotpink2]Friendly Name: {details.Head.FriendlyName}[/]");
+                head.AddNode($"[hotpink2]Is Remote: {details.Head.IsRemote}[/]");
                 
                 foreach (var detailsBranch in details.Branches)
                 {
@@ -418,11 +478,16 @@ public class BigService
                 
                 foreach (var detailsConflict in details.Index.Conflicts)
                 {
-                    conflicts.AddNode($"[{color}]Path: {detailsConflict.Ours.Path}[/]");
-                    conflicts.AddNode($"[{color}]Ancestor Id: {detailsConflict.Ancestor.Id}[/]");
-                    conflicts.AddNode($"[{color}]Our Id: {detailsConflict.Ours.Id}[/]");
-                    conflicts.AddNode($"[{color}]Their Id: {detailsConflict.Theirs.Id}[/]");
-                    conflicts.AddNode($"[{color}]Our Stage Number: {detailsConflict.Ours.StageLevel}[/]");
+                    conflicts.AddNode($"[deeppink3]Path: {detailsConflict.Ours.Path}[/]");
+                    conflicts.AddNode($"[deeppink3]Ancestor Id: {detailsConflict.Ancestor.Id}[/]");
+                    conflicts.AddNode($"[deeppink3]Our Id: {detailsConflict.Ours.Id}[/]");
+                    conflicts.AddNode($"[deeppink3]Their Id: {detailsConflict.Theirs.Id}[/]");
+                    conflicts.AddNode($"[deeppink3]Our Stage Number: {detailsConflict.Ours.StageLevel}[/]");
+                }
+                
+                foreach (var file in files)
+                {
+                    filesChanged.AddNode($"[red3_1]File: {file}[/]");
                 }
             }
         }
@@ -539,7 +604,7 @@ public class BigService
 
         var repoPrompts = AnsiConsole.Prompt(
             new MultiSelectionPrompt<string>()
-                .Title("Select your [green]repos[/]?")
+                .Title("Select your [green]repos[/]")
                 .NotRequired()
                 .PageSize(10)
                 .Mode(SelectionMode.Leaf)

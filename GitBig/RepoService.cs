@@ -1,4 +1,8 @@
-﻿namespace GitBig;
+﻿using System.Diagnostics;
+using LibGit2Sharp.Handlers;
+using Spectre.Console;
+
+namespace GitBig;
 using LibGit2Sharp;
 
 public class RepoService
@@ -33,6 +37,55 @@ public class RepoService
             }
             _remoteBranchQueue.TryAdd(repo, lst);
         }
+    }
+
+    public static void PushChanges(Repository repo, ConfigManager _config)
+    {
+        try {
+            var remote = repo.Network.Remotes["origin"];
+
+            var uname = _config.GetUsername();
+            var pass = _config.GetPersonalAccessToken();
+            var options = new PushOptions() 
+                {CredentialsProvider = (url, user, cred) => 
+                    new UsernamePasswordCredentials {Username = uname, Password = pass}};
+            
+            // var options = new PushOptions() 
+            // {CredentialsProvider = (url, user, cred) => 
+            //     new DefaultCredentials()}; // This is for Active Directory ???????
+
+            var pushRefSpec = @"refs/heads/main";
+            var authorName = repo.Config.Get<string>("user.name").Value;
+            var author = new Signature(authorName, "na", DateTimeOffset.Now);
+            repo.Network.Push(remote, pushRefSpec, options);
+        }
+        catch (Exception e) {
+            if (e.Message.Contains("401")) {
+                Console.WriteLine("Exception:RepoActions:PushChanges " + e.Message);
+                AnsiConsole.MarkupLine($"[red]401 Unauthorized error, you can set login credentials with -cr / --creds[/]\n");
+            }
+            else {
+                AnsiConsole.MarkupLine($"[red]Awww jeezz, something went horribly wrong :([/]");
+                AnsiConsole.MarkupLine($"[red]{e.Message}[/]");
+            }
+        }
+    }
+
+    private void PushViaCmd()
+    {
+        Process cmd = new Process();
+        cmd.StartInfo.FileName = "cmd.exe";
+        cmd.StartInfo.RedirectStandardInput = true;
+        cmd.StartInfo.RedirectStandardOutput = true;
+        cmd.StartInfo.CreateNoWindow = true;
+        cmd.StartInfo.UseShellExecute = false;
+        cmd.Start();
+
+        cmd.StandardInput.WriteLine("echo Oscar");
+        cmd.StandardInput.Flush();
+        cmd.StandardInput.Close();
+        cmd.WaitForExit();
+        Console.WriteLine(cmd.StandardOutput.ReadToEnd());
     }
     
     public static void FetchRemoteBranches(Dictionary<string, List<string>> _remoteBranchQueue)
