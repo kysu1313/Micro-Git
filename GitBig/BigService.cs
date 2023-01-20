@@ -70,7 +70,7 @@ public class BigService
     public void MainLoop()
     {
         //TODO: Remove this path
-        _dir = "C:\\Users\\ksups\\PROGRAMS\\JS";//Directory.GetCurrentDirectory();
+        _dir = Directory.GetCurrentDirectory();
         FindState(_dir);
         
         var choice = GetInput();
@@ -194,11 +194,12 @@ public class BigService
     {
         if (args.Count == 1)
         {
-            AnsiConsole.Markup("[red]No directory provided[/]");
+            AnsiConsole.Markup("[red]No directory provided[/]\n");
             return;
         }
-        
-        _dir = args[1];
+
+        // skip first arg and join the rest
+        _dir = string.Join(" ", args.Skip(1));
         AnsiConsole.Markup($"[green]Directory set to {_dir}[/]\n");
     }
 
