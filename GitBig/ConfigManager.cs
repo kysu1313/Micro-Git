@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Collections;
+using System.Text.Json;
 
 namespace GitBig;
 
@@ -70,5 +71,34 @@ public class ConfigManager
         {
             Console.WriteLine(e);
         }
+    }
+
+    public void SetDirectory(string dir)
+    {
+        _creds.Directories = new() { dir };
+        Save();
+    }
+
+    public void AddDirectory(string dir)
+    {
+        _creds.Directories.Add(dir);
+        Save();
+    }
+
+    public void AddDirectories(List<string> dirs)
+    {
+        _creds.Directories.AddRange(dirs);
+        Save();
+    }
+
+    public void ClearDirectories(string dir)
+    {
+        _creds.Directories.Clear();
+        Save();
+    }
+
+    public List<string> GetDirectories()
+    {
+        return _creds.Directories;
     }
 }

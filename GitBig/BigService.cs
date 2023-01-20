@@ -16,6 +16,7 @@ public class BigService
         { "[lightsalmon3_1]-bc, --branch-checkout[/]", "[lightsalmon3_1]Create new branch and check it out for selected repos #.[/]" },
         { "[magenta2]-th, --token-help[/]", "[magenta2]Show instructions on how to create a Personal Access Token for GitHub #.[/]" },
         { "[purple]-dr, --dir <path>[/]", "[purple]Set the directory to search from #.[/]" },
+        { "[deeppink3]-da, --dir-add <path>[/]", "[deeppink3]Add additional directories to be searched #.[/]" },
         { "[red]-e, --exit <#>[/]", "[red]Exit[/]" },
     };
     private Dictionary<string, string> _commands = new () 
@@ -24,6 +25,7 @@ public class BigService
         { "Additional Commands", "-------------------------------------------------------------------" },
         { "[deeppink3]-b, --branch[/]", "[deeppink3]Create new branch for selected repos #.[/]" },
         { "[green]-f, --find[/]", "[green]Find all GIT repos in current folder.[/]" },
+        { "[deeppink1_1]-dl, --dir-list <path>[/]", "[deeppink1_1]List saved directories #.[/]" },
         { "[mistyrose1]-sd, --show-diff[/]", "[mistyrose1]Show diff against <branch name> or remote if <branch name> not specified #.[/]" },
         { "[deeppink4_2]-dv, --details-verbose[/]", "[deeppink4_2]Show verbose details of the repo #.[/]" },
         { "[yellow4_1]-sr, --show-repo-queue[/]", "[yellow4_1]Show found repos #.[/]" },
@@ -47,6 +49,7 @@ public class BigService
         AnsiConsole.Write(
             new FigletText("MICRO-GIT")
                 .Color(Color.Red));
+        AnsiConsole.Markup("[red]The Ultimate GIT CLI Tool[/]\n");
         AnsiConsole.Markup("[bold yellow]NOTE: In order to fetch / push to private GitHub repos you need to supply a Personal Access Token with the \"repo\" scope![/]\n");
         _stateModel = new StateModel();
         _configManager = new ConfigManager();
@@ -119,6 +122,14 @@ public class BigService
             case "--dir":
             case "-dr":
                 SetDirectory(args);
+                break;
+            case "--dir-add":
+            case "-da":
+                AddDirectory(args);
+                break;
+            case "--dir-list":
+            case "-dl":
+                AddDirectory(args);
                 break;
             case "--select":
             case "-se":
@@ -200,7 +211,38 @@ public class BigService
 
         // skip first arg and join the rest
         _dir = string.Join(" ", args.Skip(1));
+        _configManager.SetDirectory(_dir);
         AnsiConsole.Markup($"[green]Directory set to {_dir}[/]\n");
+    }
+
+    private void AddDirectory(IReadOnlyList<string> args)
+    {
+        if (args.Count == 1)
+        {
+            AnsiConsole.Markup("[red]No directory provided[/]\n");
+            return;
+        }
+
+        // skip first arg and join the rest
+        _dir = string.Join(" ", args.Skip(1));
+        _configManager.AddDirectory(_dir);
+        AnsiConsole.Markup($"[green]Directory set to {_dir}[/]\n");
+    }
+    
+    private void ListDirectories()
+    {
+        var dirs = _configManager.GetDirectories();
+        if (dirs.Count == 0)
+        {
+            AnsiConsole.Markup("[red]No saved directories, use -dr to set or -da to add a directory to saved state.[/]\n");
+            return;
+        }
+        
+        AnsiConsole.Markup("[green]Directories:[/]\n");
+        foreach (var dir in dirs)
+        {
+            AnsiConsole.Markup($"[green]{dir}[/]\n");
+        }
     }
 
     private void CommitChanges(IReadOnlyList<string> args)
