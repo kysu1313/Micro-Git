@@ -6,13 +6,13 @@ namespace GitBig;
 public class ConfigManager
 {
     private readonly string _configFilePath = "./config.json";
-    private readonly string _credsFilePath = "./creds.json";
+    private readonly string configsFilePath = "./creds.json";
     private readonly string _pf = "microgit-q13";
-    private CredsModel _creds;
+    public ConfigModel configs;
 
     public ConfigManager()
     {
-        _creds = new CredsModel();
+        configs = new ConfigModel();
         Load();
     }
     
@@ -21,17 +21,17 @@ public class ConfigManager
         if (File.Exists(_configFilePath))
         {
             var configJson = File.ReadAllText(_configFilePath);
-            _creds = JsonSerializer.Deserialize<CredsModel>(configJson);
+            configs = JsonSerializer.Deserialize<ConfigModel>(configJson);
         }
     }
     
     public string SetCreds(string username, String personalAccessToken, bool saveToFile = true)
     {
-        _creds.Username = StringCipher.Encrypt(username, _pf);
-        _creds.PersonalAccessToken = StringCipher.Encrypt(personalAccessToken, _pf);
+        configs.Username = StringCipher.Encrypt(username, _pf);
+        configs.PersonalAccessToken = StringCipher.Encrypt(personalAccessToken, _pf);
         if (saveToFile)
         {
-            _creds.SavedToFile = true;
+            configs.SavedToFile = true;
             Save();
         }
         return "Credentials saved";
@@ -39,14 +39,14 @@ public class ConfigManager
     
     public (string, string) GetCreds()
     {
-        if (_creds.SavedToFile)
+        if (configs.SavedToFile)
         {
-            return (StringCipher.Decrypt(_creds.Username, _pf), 
-                StringCipher.Decrypt(_creds.PersonalAccessToken, _pf));
+            return (StringCipher.Decrypt(configs.Username, _pf), 
+                StringCipher.Decrypt(configs.PersonalAccessToken, _pf));
         }
         else
         {
-            return (_creds.Username, _creds.PersonalAccessToken);
+            return (configs.Username, configs.PersonalAccessToken);
         }
     }
     
@@ -64,7 +64,7 @@ public class ConfigManager
     {
         try
         {
-            var configJson = JsonSerializer.Serialize(_creds);
+            var configJson = JsonSerializer.Serialize(configs);
             File.WriteAllText(_configFilePath, configJson);
         }
         catch (Exception e)
@@ -75,30 +75,30 @@ public class ConfigManager
 
     public void SetDirectory(string dir)
     {
-        _creds.Directories = new() { dir };
+        configs.Directories = new() { dir };
         Save();
     }
 
     public void AddDirectory(string dir)
     {
-        _creds.Directories.Add(dir);
+        configs.Directories.Add(dir);
         Save();
     }
 
     public void AddDirectories(List<string> dirs)
     {
-        _creds.Directories.AddRange(dirs);
+        configs.Directories.AddRange(dirs);
         Save();
     }
 
     public void ClearDirectories(string dir)
     {
-        _creds.Directories.Clear();
+        configs.Directories.Clear();
         Save();
     }
 
     public List<string> GetDirectories()
     {
-        return _creds.Directories;
+        return configs.Directories;
     }
 }

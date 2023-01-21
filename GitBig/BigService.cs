@@ -26,6 +26,7 @@ public class BigService
         { "[deeppink3]-b, --branch[/]", "[deeppink3]Create new branch for selected repos #.[/]" },
         { "[green]-f, --find[/]", "[green]Find all GIT repos in current folder.[/]" },
         { "[deeppink1_1]-dl, --dir-list <path>[/]", "[deeppink1_1]List saved directories #.[/]" },
+        { "[gold3]-sv, --saved[/]", "[gold3]Show saved info #.[/]" },
         { "[mistyrose1]-sd, --show-diff[/]", "[mistyrose1]Show diff against <branch name> or remote if <branch name> not specified #.[/]" },
         { "[deeppink4_2]-dv, --details-verbose[/]", "[deeppink4_2]Show verbose details of the repo #.[/]" },
         { "[yellow4_1]-sr, --show-repo-queue[/]", "[yellow4_1]Show found repos #.[/]" },
@@ -36,7 +37,7 @@ public class BigService
         { "[yellow]-h, --help[/]", "[yellow]Show command table #.[/]" },
         { "[red]-e, --exit[/]", "[red]Exit (Also ctrl + c)[/]" },
     };
-    private StateModel _stateModel;
+    // private StateModel _configManager.configs.State;
     private string _dir;
     private ConfigManager _configManager;
 
@@ -51,7 +52,7 @@ public class BigService
                 .Color(Color.Red));
         AnsiConsole.Markup("[red]The Ultimate GIT CLI Tool[/]\n");
         AnsiConsole.Markup("[bold yellow]NOTE: In order to fetch / push to private GitHub repos you need to supply a Personal Access Token with the \"repo\" scope![/]\n");
-        _stateModel = new StateModel();
+        // _configManager.configs.State = new StateModel();
         _configManager = new ConfigManager();
         DrawTable();
     }
@@ -139,6 +140,10 @@ public class BigService
             case "-c":
                 CommitChanges(args);
                 break;
+            case "--saved":
+            case "-sv":
+                ShowSavedData();
+                break;
             case "--show-commit-queue":
             case "-sc":
                 ShowCommit();
@@ -201,6 +206,25 @@ public class BigService
         AnsiConsole.Markup("[green]Credentials set successfully![/]\n");
     }
 
+    private void ShowSavedData()
+    {
+        var state = _configManager.configs.State;
+        foreach (var stateRepo in state.repos)
+        {
+            AnsiConsole.Markup($"[green]Repo: {stateRepo}[/]\n");
+        }
+        
+        foreach (var stateCommit in state.commitQueue)
+        {
+            AnsiConsole.Markup($"[green]Commit: {stateCommit}[/]\n");
+        }
+        
+        foreach (var stateBranch in state.branchQueue)
+        {
+            AnsiConsole.Markup($"[green]Branch: {stateBranch.Key}[/]\n");
+        }
+    }
+
     private void SetDirectory(IReadOnlyList<string> args)
     {
         if (args.Count == 1)
@@ -255,7 +279,7 @@ public class BigService
             return;
         }
         
-        if (_stateModel.commitQueue.Count == 0)
+        if (_configManager.configs.State.commitQueue.Count == 0)
         {
             SelectState();
         }
@@ -268,7 +292,7 @@ public class BigService
             commitMessage = Console.ReadLine();
         }
 
-        foreach (var repo in _stateModel.commitQueue)
+        foreach (var repo in _configManager.configs.State.commitQueue)
         {
             using var repository = new Repository(repo);
             var status = repository.RetrieveStatus();
@@ -296,8 +320,8 @@ public class BigService
     {
         // Show diff of selected repos compared to remote
 
-        RepoService.GetRemoteBranches(_stateModel.repos, _stateModel.remoteBranchQueue);
-        RepoService.FetchRemoteBranches(_stateModel.remoteBranchQueue);
+        RepoService.GetRemoteBranches(_configManager.configs.State.repos, _configManager.configs.State.remoteBranchQueue);
+        RepoService.FetchRemoteBranches(_configManager.configs.State.remoteBranchQueue);
         
         
         var selectedRepos = RepoSelectPrompt("Select repos to show diff for");
@@ -336,7 +360,7 @@ public class BigService
         try
         {
             SelectReposToBranch();
-            if (_stateModel.branchQueue.Count == 0)
+            if (_configManager.configs.State.branchQueue.Count == 0)
             {
                 AnsiConsole.Markup("[red]No repos selected[/]\n");
                 return;
@@ -350,7 +374,7 @@ public class BigService
             }
             
             bool didCheckout = false;
-            foreach (var (repo, branch) in _stateModel.branchQueue)
+            foreach (var (repo, branch) in _configManager.configs.State.branchQueue)
             {
                 using var repository = new Repository(repo);
                 Branch? newBranch = null;
@@ -358,7 +382,7 @@ public class BigService
                 if (repository.Branches[branchName] == null)
                 {
                     newBranch = repository.CreateBranch(branchName);
-                    _stateModel.branchQueue[repo] = newBranch.CanonicalName;
+                    _configManager.configs.State.branchQueue[repo] = newBranch.CanonicalName;
                 }
                 else
                 {
@@ -379,26 +403,26 @@ public class BigService
                 if (string.Equals(shouldCheckoutBranch.First(), "Yes", StringComparison.OrdinalIgnoreCase))
                 {
                     didCheckout = true;
-                    foreach (var (repo, branch) in _stateModel.branchQueue)
+                    foreach (var (repo, branch) in _configManager.configs.State.branchQueue)
                     {
                         using var repository = new Repository(repo);
                         var branchToCheckout = repository.Branches[branch];
                         Commands.Checkout(repository, branchToCheckout);
                     }
                     AnsiConsole.Markup($"[green]Branch {branchName} created and checked out successfully for the following repos:[/]\n");
-                    _stateModel.branchQueue.ToList().ForEach(x => AnsiConsole.Markup($"[green]{x.Key}[/]\n"));
+                    _configManager.configs.State.branchQueue.ToList().ForEach(x => AnsiConsole.Markup($"[green]{x.Key}[/]\n"));
                 }
             }
             
             if (shouldCheckout)
             {
                 AnsiConsole.Markup($"[green]Branch {branchName} created and checked out successfully for the following repos:[/]\n");
-                _stateModel.branchQueue.ToList().ForEach(x => AnsiConsole.Markup($"[green]{x.Key}[/]\n"));
+                _configManager.configs.State.branchQueue.ToList().ForEach(x => AnsiConsole.Markup($"[green]{x.Key}[/]\n"));
             }
             
             if (shouldStageAll)
             {
-                foreach (var (repo, branch) in _stateModel.branchQueue)
+                foreach (var (repo, branch) in _configManager.configs.State.branchQueue)
                 {
                     using var repository = new Repository(repo);
                     var status = repository.RetrieveStatus();
@@ -411,7 +435,7 @@ public class BigService
             
             if (shouldPush)
             {
-                foreach (var (repo, branch) in _stateModel.branchQueue)
+                foreach (var (repo, branch) in _configManager.configs.State.branchQueue)
                 {
                     using var repository = new Repository(repo);
                     var status = repository.RetrieveStatus();
@@ -445,24 +469,24 @@ public class BigService
         AnsiConsole.Status()
             .Start("Thinking...", ctx => 
             {
-                _stateModel.repos = RepoService.GetReposInCurrentDir(dir);
-                RepoService.GetRemoteBranches(_stateModel.repos, _stateModel.remoteBranchQueue);
+                _configManager.configs.State.repos = RepoService.GetReposInCurrentDir(dir);
+                RepoService.GetRemoteBranches(_configManager.configs.State.repos, _configManager.configs.State.remoteBranchQueue);
                 ctx.Status("Thinking some more");
                 ctx.Spinner(Spinner.Known.Star);
                 ctx.SpinnerStyle(Style.Parse("green"));
             });
-        _stateModel.repos = RepoService.GetReposInCurrentDir(dir);
+        _configManager.configs.State.repos = RepoService.GetReposInCurrentDir(dir);
         
-        if (_stateModel.repos.Count <= 0)
+        if (_configManager.configs.State.repos.Count <= 0)
         {
             AnsiConsole.MarkupLine("[red]No repos found![/]\n");
         }
-        AnsiConsole.Markup($"[green]Found {_stateModel.repos.Count} repos in current directory[/]\n");
+        AnsiConsole.Markup($"[green]Found {_configManager.configs.State.repos.Count} repos in current directory[/]\n");
     }
 
     private void FindDetailState(bool verbose = false)
     {
-        if (_stateModel.repos.Count <= 0)
+        if (_configManager.configs.State.repos.Count <= 0)
         {
             AnsiConsole.MarkupLine("[red]No repos found![/]");
             AnsiConsole.MarkupLine("[red]Try passing the -a flag to search All sub directories.[/]\n");
@@ -475,7 +499,7 @@ public class BigService
         var colors = new [] { "red", "palegreen1_1", "darkorange3_1", "gold3_1", "deeppink1_1", "lightsalmon1", "paleturquoise1" };
         var random = new Random();
 
-        foreach (var repo in _stateModel.repos)
+        foreach (var repo in _configManager.configs.State.repos)
         {
             
             using var repository = new Repository(repo);
@@ -558,10 +582,10 @@ public class BigService
 
     private void ShowRepos()
     {
-        if (_stateModel.repos.Count > 0)
+        if (_configManager.configs.State.repos.Count > 0)
         {
             AnsiConsole.MarkupLine("[green]Found the following repos:[/]");
-            _stateModel.repos.ForEach(x => AnsiConsole.MarkupLine($"[blue]{x}[/]"));
+            _configManager.configs.State.repos.ForEach(x => AnsiConsole.MarkupLine($"[blue]{x}[/]"));
         }
         else
         {
@@ -571,10 +595,10 @@ public class BigService
 
     private void ShowCommit()
     {
-        if (_stateModel.commitQueue.Count > 0)
+        if (_configManager.configs.State.commitQueue.Count > 0)
         {
             AnsiConsole.MarkupLine("[green]Found the following commits:[/]");
-            _stateModel.commitQueue.ForEach(x => AnsiConsole.MarkupLine($"[blue]{x}[/]\n"));
+            _configManager.configs.State.commitQueue.ForEach(x => AnsiConsole.MarkupLine($"[blue]{x}[/]\n"));
         }
         else
         {
@@ -584,10 +608,10 @@ public class BigService
 
     private void ShowBranches()
     {
-        if (_stateModel.branchQueue.Count > 0)
+        if (_configManager.configs.State.branchQueue.Count > 0)
         {
             AnsiConsole.MarkupLine("[green]Found the following branches:[/]");
-            _stateModel.branchQueue.ToList().ForEach(x =>
+            _configManager.configs.State.branchQueue.ToList().ForEach(x =>
             {
                 AnsiConsole.MarkupLine($"[blue]{x.Key}[/]\n");
                 AnsiConsole.MarkupLine($"[blue]{x.Value}[/]\n");
@@ -616,7 +640,7 @@ public class BigService
         // Add selected repos to commit queue
         foreach (var repoPrompt in repoPrompts)
         {
-            _stateModel.branchQueue.Add(repoPrompt, "");
+            _configManager.configs.State.branchQueue.Add(repoPrompt, "");
         }
         
     }
@@ -635,7 +659,7 @@ public class BigService
         repoPrompts.ForEach(x => AnsiConsole.MarkupLine($"[blue]{x}[/]"));
         
         // Add selected repos to commit queue
-        _stateModel.commitQueue.AddRange(repoPrompts);
+        _configManager.configs.State.commitQueue.AddRange(repoPrompts);
     }
 
     private List<string> RepoSelectPrompt(string instructions)
@@ -655,7 +679,7 @@ public class BigService
                 .InstructionsText(
                     "[grey](Press [blue]<space>[/] to toggle a repo, " +
                     "[green]<enter>[/] to accept)[/]")
-                .AddChoiceGroup("Repos", _stateModel.repos));
+                .AddChoiceGroup("Repos", _configManager.configs.State.repos));
 
         // Write the selected repos to the terminal
         foreach (string repo in repoPrompts)
