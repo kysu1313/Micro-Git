@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using LibGit2Sharp.Handlers;
+using MicroGit.HelperFunctions;
 using Spectre.Console;
 
 namespace MicroGit;
@@ -42,14 +43,7 @@ public class RepoService
     public static void PushChanges(Repository repo, string commitMessage, ConfigManager _config)
     {
         try {
-            var remote = repo.Network.Remotes["origin"];
-            var uname = _config.GetUsername();
-            var pass = _config.GetPersonalAccessToken();
-            var pushOptions = new PushOptions()
-            {
-                CredentialsProvider = (url, user, cred) =>
-                    new UsernamePasswordCredentials { Username = uname, Password = pass }
-            };
+            var pushOptions = GetPushOptions(_config);
             
             // var options = new PushOptions() 
             // {CredentialsProvider = (url, user, cred) => 
@@ -89,6 +83,95 @@ public class RepoService
                 AnsiConsole.MarkupLine($"[red]{e.Message}[/]");
             }
         }
+    }
+
+    public static string CreateRemoteBranch(string branchName, string basedOnBranchName, string repoPath, ConfigManager config)
+    {
+        try
+        {
+            using var repository = new Repository(repoPath);
+            var remote = repository.Network.Remotes["origin"];
+            var basedOnRemoteBranch = repository.Branches[$"refs/remotes/origin/{basedOnBranchName}"];
+            var localBranch = GetLocalBranch(repository);
+            var remoteBranch = repository.Branches[$"refs/remotes/origin/{branchName}"];
+            if (remoteBranch == null)
+            {
+                remoteBranch = repository.CreateBranch($"refs/remotes/origin/{branchName}", localBranch.Tip);
+            }
+            Commands.Checkout(repository, localBranch);
+            repository.Branches.Update(localBranch, b => 
+                b.TrackedBranch = remoteBranch.CanonicalName,
+                b => b.Remote = basedOnRemoteBranch.RemoteName);
+            
+            repository.Network.Push(remoteBranch, GetPushOptions(config));
+            return localBranch.UpstreamBranchCanonicalName;
+        }
+        catch (Exception e)
+        {
+            Utils<string>.WriteErrorIssue(e);
+        }
+        return "";
+    }
+    
+    
+
+    public static string GetRemoteBranchName(string repoName, string remoteBranchName, List<string> options, Repository repo)
+    {
+        bool validBranchName = false;
+        while (!validBranchName)
+        {
+            remoteBranchName = Utils<string>.CustomPrompt(
+                $"Select the remote branch you want to set upstream for {repoName}:",
+                "Set upstream", options);
+            if (!repo.Branches.Any(x => string.Equals(x.RemoteName, remoteBranchName)))
+            {
+                validBranchName = true;
+            }
+            else
+            {
+                AnsiConsole.MarkupLine($"[red]Branch {remoteBranchName} already exists[/]");
+            }
+        }
+
+        return remoteBranchName;
+    }
+
+    public static Branch? GetRemoteBranch(string repoPath, string branchName)
+    {
+        try
+        {
+            using var repository = new Repository(repoPath);
+            var basedOnRemoteBranch = repository.Branches[$"refs/remotes/origin/{branchName}"];
+            return basedOnRemoteBranch;
+        }
+        catch (Exception e)
+        {
+            Utils<string>.WriteErrorIssue(e);
+        }
+        return null;
+    }
+
+    private static PushOptions? GetPushOptions(ConfigManager config)
+    {
+        try
+        {
+            var pushOptions = new PushOptions()
+            {
+                CredentialsProvider = (url, user, cred) =>
+                    new UsernamePasswordCredentials
+                    {
+                        Username = config.GetUsername(), 
+                        Password = config.GetPersonalAccessToken()
+                    }
+            };
+            return pushOptions;
+        }
+        catch (Exception e)
+        {
+            Utils<string>.WriteErrorIssue(e);
+        }
+
+        return null;
     }
     
     public void SetUpstreamBranch(){}
@@ -194,5 +277,27 @@ public class RepoService
         // var author = new Signature(repo.Index., "
         // repo.Commit(message, new Signature("MicroGit", "
         return true;
+    }
+
+    public static List<Reference>? GetAllRemoteBranches(Repository repo, ConfigManager configManager)
+    {
+        try
+        {
+            return Repository.ListRemoteReferences(
+                    repo.Network.Remotes.First().Url, 
+                    (_, _, _) =>
+                        new UsernamePasswordCredentials
+                        {
+                            Username = configManager.GetUsername(), 
+                            Password = configManager.GetPersonalAccessToken()
+                        })
+                .Where(elem => elem.IsLocalBranch).ToList();
+        }
+        catch (Exception e)
+        {
+            Utils<string>.WriteErrorIssue(e);
+        }
+
+        return null;
     }
 }

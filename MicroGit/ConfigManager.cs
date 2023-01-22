@@ -71,6 +71,7 @@ public class ConfigManager
     public void SetRemoteType(RemoteTypes type)
     {
         state.Credentials.RemoteHost = type.ToString();
+        Save();
     }
     
     public int GetDirCount()
@@ -81,10 +82,21 @@ public class ConfigManager
     public void DeleteSavedCredentials()
     {
         state.Credentials.Email = "";
+        state.Credentials.Username = "";
         state.Credentials.Password = "";
         state.Credentials.PersonalAccessToken = "";
         state.Credentials.RemoteHost = "";
     }
+
+    public (string, string, string, string, string) GetSavedCredentials()
+    {
+        return (
+        state.Credentials.Email,
+        state.Credentials.Username,
+        state.Credentials.Password,
+        state.Credentials.PersonalAccessToken,
+        state.Credentials.RemoteHost);
+    }                                     
     
     public string GetUsername()
     {
