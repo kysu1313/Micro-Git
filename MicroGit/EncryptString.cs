@@ -1,4 +1,4 @@
-﻿namespace GitBig;
+﻿namespace MicroGit;
 
 using System;
 using System.Text;

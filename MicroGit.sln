@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GitBig", "GitBig\GitBig.csproj", "{EEF00D7C-56A7-473F-9A9C-B49616312776}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MicroGit", "MicroGit\MicroGit.csproj", "{EEF00D7C-56A7-473F-9A9C-B49616312776}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

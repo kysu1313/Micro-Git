@@ -14,4 +14,13 @@
       <PackageReference Include="Spectre.Console.Cli" Version="0.46.0" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="config.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="creds.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
 </Project>

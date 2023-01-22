@@ -1,4 +1,4 @@
-﻿namespace GitBig;
+﻿namespace MicroGit;
 
 public class Utils
 {

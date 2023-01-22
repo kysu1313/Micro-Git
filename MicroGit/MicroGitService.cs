@@ -2,7 +2,12 @@
 using Spectre.Console;
 using Tree = Spectre.Console.Tree;
 
-namespace GitBig;
+namespace MicroGit;
+
+/*
+ * LibGit2Sharp Test Cases:
+ * https://github.com/libgit2/libgit2sharp/blob/a4c6c4552b24590995c221304e7d7c75c181ea82/LibGit2Sharp.Tests/BranchFixture.cs#L574-L603
+ */
 
 public class BigService
 {
@@ -34,11 +39,12 @@ public class BigService
         { "[deeppink1_1]-sb, --show-branch-queue[/]", "[deeppink1_1]Show current branch queue #.[/]" },
         { "[gold3]-se, --select[/]", "[gold3]Select repos to commit #.[/]" },
         { "[deeppink3]-bcsp, --branch-checkout-stage-push[/]", "[deeppink3]Create new branch for selected repos, checkout branch, stage all and push #.[/]" },
+        { "[deeppink4_2]-dc, --delete-credentials[/]", "[deeppink4_2]Delete saved credentials #.[/]" },
         { "[yellow]-h, --help[/]", "[yellow]Show command table #.[/]" },
         { "[red]-e, --exit[/]", "[red]Exit (Also ctrl + c)[/]" },
     };
-    // private StateModel _configManager.configs.State;
-    private string _dir;
+    // private StateModel _configManager.state;
+    private List<string> _dir;
     private ConfigManager _configManager;
 
     public BigService()
@@ -52,7 +58,6 @@ public class BigService
                 .Color(Color.Red));
         AnsiConsole.Markup("[red]The Ultimate GIT CLI Tool[/]\n");
         AnsiConsole.Markup("[bold yellow]NOTE: In order to fetch / push to private GitHub repos you need to supply a Personal Access Token with the \"repo\" scope![/]\n");
-        // _configManager.configs.State = new StateModel();
         _configManager = new ConfigManager();
         DrawTable();
     }
@@ -74,7 +79,7 @@ public class BigService
     public void MainLoop()
     {
         //TODO: Remove this path
-        _dir = Directory.GetCurrentDirectory();
+        _dir = new() { "C:\\Users\\ksups\\PROGRAMS\\JS" };//Directory.GetCurrentDirectory() };
         FindState(_dir);
         
         var choice = GetInput();
@@ -130,7 +135,7 @@ public class BigService
                 break;
             case "--dir-list":
             case "-dl":
-                AddDirectory(args);
+                ListDirectories();
                 break;
             case "--select":
             case "-se":
@@ -160,6 +165,10 @@ public class BigService
             case "-sd":
                 ShowDiff();
                 break;
+            case "--set-upstream":
+            case "-su":
+                SetUpstreamBranches();
+                break;
             case "--branch":
             case "-b":
                 BranchState();
@@ -176,6 +185,10 @@ public class BigService
             case "-h":
                 DrawTable();
                 break;
+            case "--delete-credentials":
+            case "-dc":
+                DeleteCredentials();
+                break;
             case "--exit":
             case "-e":
                 return;
@@ -185,10 +198,58 @@ public class BigService
         }
     }
 
+    private void SetUpstreamBranches()
+    {
+        var selectedRepos = RepoSelectPrompt("Select repos to show diff for");
+
+        var root = new Tree("Diffs");
+        foreach (var repoPath in selectedRepos)
+        {
+            var repoName = repoPath.Split('\\').Last();
+            var repoNode = root.AddNode($"[yellow]{repoName}[/]");
+
+            using (var repo = new Repository(repoPath))
+            {
+                var innerTable = new Table()
+                    .RoundedBorder();
+                innerTable.AddColumn("Details");
+
+                // Get the current branch
+                Branch currentBranch = repo.Head;
+
+                // Get the upstream branch
+                var upstream = currentBranch.TrackedBranch;
+                
+                if (upstream == null)
+                {
+                    AnsiConsole.MarkupLine($"[red]No upstream branch for {repoName}[/]");
+                    continue;
+                }
+            }
+        }
+    }
+
+    private void DeleteCredentials()
+    {
+        _configManager.DeleteSavedCredentials();
+    }
+
     private void GetCredentials()
     {
+        var remoteHost = CustomPrompt("What remote host are you using?", "Remote Host", new()
+        {
+            RemoteTypes.GitHub.ToString(), RemoteTypes.GitLab.ToString(), RemoteTypes.TFS.ToString()
+        });
+
+        if (string.Equals(remoteHost, RemoteTypes.TFS.ToString()))
+        {
+            AnsiConsole.Markup("[green]I'll use your system credentials to authenticate![/]\n");
+            _configManager.SetRemoteType(RemoteTypes.TFS);
+            return;
+        }
+        
         var saveCreds = YesNoSelectPrompt("Do you want to save your credentials? (Recommended) They will be encrypted.");
-        bool shouldSave = saveCreds.First() == "Yes";
+        bool shouldSave = string.Equals(saveCreds, "Yes", StringComparison.OrdinalIgnoreCase);
         AnsiConsole.Markup("[green]Enter your GIT username[/]");
         AnsiConsole.Markup("[green]Username: [/]");
         var username = Console.ReadLine();
@@ -208,22 +269,22 @@ public class BigService
 
     private void ShowSavedData()
     {
-        var state = _configManager.configs.State;
-        foreach (var stateRepo in state.repos)
+        var state = _configManager.state;
+        foreach (var stateRepo in state.Repos)
         {
             AnsiConsole.Markup($"[green]Repo: {stateRepo}[/]\n");
         }
         
-        foreach (var stateCommit in state.commitQueue)
+        foreach (var stateCommit in state.CommitQueue)
         {
             AnsiConsole.Markup($"[green]Commit: {stateCommit}[/]\n");
         }
         
-        foreach (var stateBranch in state.branchQueue)
+        foreach (var stateBranch in state.BranchQueue)
         {
             AnsiConsole.Markup($"[green]Branch: {stateBranch.Key}[/]\n");
         }
-    }
+    } 
 
     private void SetDirectory(IReadOnlyList<string> args)
     {
@@ -234,9 +295,10 @@ public class BigService
         }
 
         // skip first arg and join the rest
-        _dir = string.Join(" ", args.Skip(1));
-        _configManager.SetDirectory(_dir);
-        AnsiConsole.Markup($"[green]Directory set to {_dir}[/]\n");
+        var dr = string.Join(" ", args.Skip(1));
+        _configManager.AddDirectory(dr);
+        _configManager.SetCurrentDirectory(new () {dr});
+        AnsiConsole.Markup($"[greenyellow]Directory set to {_dir.First()}[/]\n"); //TODO: make this work with multiple directories
     }
 
     private void AddDirectory(IReadOnlyList<string> args)
@@ -248,9 +310,9 @@ public class BigService
         }
 
         // skip first arg and join the rest
-        _dir = string.Join(" ", args.Skip(1));
-        _configManager.AddDirectory(_dir);
-        AnsiConsole.Markup($"[green]Directory set to {_dir}[/]\n");
+        var dr = string.Join(" ", args.Skip(1));
+        _configManager.AddDirectory(dr);
+        AnsiConsole.Markup($"[greenyellow]Directory set to {_dir}[/]\n");
     }
     
     private void ListDirectories()
@@ -271,84 +333,117 @@ public class BigService
 
     private void CommitChanges(IReadOnlyList<string> args)
     {
-        
-        if (string.IsNullOrEmpty(_configManager.GetUsername()) || 
-            string.IsNullOrEmpty(_configManager.GetPersonalAccessToken()))
+        try
         {
-            AnsiConsole.Markup("[red]No credentials set. Use --creds or -cr to set credentials[/]\n");
-            return;
-        }
-        
-        if (_configManager.configs.State.commitQueue.Count == 0)
-        {
-            SelectState();
-        }
-        
-        var commitMessage = string.Join(" ", args.Skip(1));
-        
-        if (string.IsNullOrEmpty(commitMessage))
-        {
-            AnsiConsole.Markup("[red]Please enter a commit message[/]: ");
-            commitMessage = Console.ReadLine();
-        }
-
-        foreach (var repo in _configManager.configs.State.commitQueue)
-        {
-            using var repository = new Repository(repo);
-            var status = repository.RetrieveStatus();
-            var files = status.Modified.Select(mods => mods.FilePath).ToList();
-
-            if (files.Count == 0)
+            if (string.IsNullOrEmpty(_configManager.GetUsername()) || 
+                string.IsNullOrEmpty(_configManager.GetPersonalAccessToken()))
             {
-                AnsiConsole.Markup($"[red]{repo}[/] [yellow]has no changes to commit[/]\n");
-                continue;
+                AnsiConsole.Markup("[red]No credentials set. Use --creds or -cr to set credentials[/]\n");
+                return;
             }
+        
+            if (_configManager.state.CommitQueue.Count == 0)
+            {
+                SelectState();
+            }
+        
+            var commitMessage = string.Join(" ", args.Skip(1));
+        
+            if (string.IsNullOrEmpty(commitMessage))
+            {
+                AnsiConsole.Markup("[red]Please enter a commit message[/]: ");
+                commitMessage = Console.ReadLine() ?? "New commit";
+            }
+
+            foreach (var repo in _configManager.state.CommitQueue)
+            {
+                using var repository = new Repository(repo);
+                var status = repository.RetrieveStatus();
+                var files = status.Modified.Select(mods => mods.FilePath).ToList();
+
+                if (files.Count == 0)
+                {
+                    AnsiConsole.Markup($"[red]{repo}[/] [yellow]has no changes to commit[/]\n");
+                    continue;
+                }
             
-            if (status.IsDirty)
-            {
-                Commands.Stage(repository, "*");
-                var authorName = repository.Config.Get<string>("user.name").Value;
-                var author = new Signature(authorName, "na", DateTimeOffset.Now);
-                repository.Commit(commitMessage, author, author);
-                RepoService.PushChanges(repository, _configManager);
-                AnsiConsole.Markup($"[green]{repo}[/] [yellow]committed successfully![/]\n");
+                if (status.IsDirty)
+                {
+                    Commands.Stage(repository, "*");
+                    var authorName = repository.Config.Get<string>("user.name").Value;
+                    var author = new Signature(authorName, "na", DateTimeOffset.Now);
+                    RepoService.PushChanges(repository, commitMessage, _configManager);
+                    AnsiConsole.Markup($"[green]{repo}[/] [yellow]committed successfully![/]\n");
+                }
             }
         }
+        catch (Exception e)
+        {
+            AnsiConsole.Markup($"[red]Error: {e.Message}[/]\n");
+        }
+        
     }
 
     private void ShowDiff()
     {
         // Show diff of selected repos compared to remote
 
-        RepoService.GetRemoteBranches(_configManager.configs.State.repos, _configManager.configs.State.remoteBranchQueue);
-        RepoService.FetchRemoteBranches(_configManager.configs.State.remoteBranchQueue);
-        
-        
         var selectedRepos = RepoSelectPrompt("Select repos to show diff for");
 
         var root = new Tree("Diffs");
-        foreach (var repo in selectedRepos)
+        foreach (var repoPath in selectedRepos)
         {
-            var repoName = repo.Split('\\').Last();
+            var repoName = repoPath.Split('\\').Last();
             var repoNode = root.AddNode($"[yellow]{repoName}[/]");
-            using var repository = new Repository(repo);
             
-            var toCommit = repository.Head.Tip.Tree;
-            var fromCommit = repository.Head.Tip.Parents.First().Tree;
-            // var toCommit = repository.Head.TrackedBranch.Tip.Tree;
-            
-            var patch = repository.Diff.Compare<Patch>(fromCommit, toCommit);
-
-            var innerTable = new Table()
-                .RoundedBorder()
-                .AddColumn("Files");
-
-            foreach (var pec in patch)
+            using (var repo = new Repository(repoPath))
             {
-                innerTable.AddRow($"[red]{pec.Path} = {pec.LinesAdded + pec.LinesDeleted} ({pec.LinesAdded}+ and {pec.LinesDeleted}-)[/]");
+                var innerTable = new Table()
+                    .RoundedBorder();
+                innerTable.AddColumn("Details");
+                 
+                // Get the current branch
+                Branch currentBranch = repo.Head;
+
+                // Get the upstream branch
+                var upstream = currentBranch.TrackedBranch;
+
+                if (upstream == null)
+                {
+                    innerTable.AddRow("[red]No upstream branch[/]");
+                    repoNode.AddNode(innerTable);
+                    continue;
+                }
+
+                // Get the diff between the current branch and the upstream branch
+                var diff = repo.Diff.Compare<Patch>(currentBranch.Tip.Tree, upstream.Tip.Tree);
+                
+                if (diff.Count() == 0)
+                {
+                    innerTable.AddRow($"[red]{repoPath}[/] [yellow]has no changes to commit[/]\n");
+                    repoNode.AddNode(innerTable);
+                    continue;
+                }
+                
+                // Iterate through the diffs and print the file names
+                foreach (var pec in diff)
+                {
+                    innerTable.AddRow($"[red]{pec.Path} = {pec.LinesAdded + pec.LinesDeleted} ({pec.LinesAdded}+ and {pec.LinesDeleted}-)[/]");
+                }
+                
+                repoNode.AddNode(innerTable);
             }
-            
-            repoNode.AddNode(innerTable);
+
+            // var innerTable = new Table()
+            //     .RoundedBorder()
+            //     .AddColumn("Files");
+            //
+            // foreach (var pec in patch)
+            // {
+            //     innerTable.AddRow($"[red]{pec.Path} = {pec.LinesAdded + pec.LinesDeleted} ({pec.LinesAdded}+ and {pec.LinesDeleted}-)[/]");
+            // }
+            //
+            // repoNode.AddNode(innerTable);
             
         }
         
@@ -360,7 +455,7 @@ public class BigService
         try
         {
             SelectReposToBranch();
-            if (_configManager.configs.State.branchQueue.Count == 0)
+            if (_configManager.state.BranchQueue.Count == 0)
             {
                 AnsiConsole.Markup("[red]No repos selected[/]\n");
                 return;
@@ -374,7 +469,7 @@ public class BigService
             }
             
             bool didCheckout = false;
-            foreach (var (repo, branch) in _configManager.configs.State.branchQueue)
+            foreach (var (repo, branch) in _configManager.state.BranchQueue)
             {
                 using var repository = new Repository(repo);
                 Branch? newBranch = null;
@@ -382,7 +477,7 @@ public class BigService
                 if (repository.Branches[branchName] == null)
                 {
                     newBranch = repository.CreateBranch(branchName);
-                    _configManager.configs.State.branchQueue[repo] = newBranch.CanonicalName;
+                    _configManager.state.BranchQueue[repo] = newBranch.CanonicalName;
                 }
                 else
                 {
@@ -400,29 +495,29 @@ public class BigService
             if (!shouldCheckout)
             {
                 var shouldCheckoutBranch = YesNoSelectPrompt($"Do you want to checkout the branch {branchName} for all repos?");
-                if (string.Equals(shouldCheckoutBranch.First(), "Yes", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(shouldCheckoutBranch, "Yes", StringComparison.OrdinalIgnoreCase))
                 {
                     didCheckout = true;
-                    foreach (var (repo, branch) in _configManager.configs.State.branchQueue)
+                    foreach (var (repo, branch) in _configManager.state.BranchQueue)
                     {
                         using var repository = new Repository(repo);
                         var branchToCheckout = repository.Branches[branch];
                         Commands.Checkout(repository, branchToCheckout);
                     }
                     AnsiConsole.Markup($"[green]Branch {branchName} created and checked out successfully for the following repos:[/]\n");
-                    _configManager.configs.State.branchQueue.ToList().ForEach(x => AnsiConsole.Markup($"[green]{x.Key}[/]\n"));
+                    _configManager.state.BranchQueue.ToList().ForEach(x => AnsiConsole.Markup($"[green]{x.Key}[/]\n"));
                 }
             }
             
             if (shouldCheckout)
             {
                 AnsiConsole.Markup($"[green]Branch {branchName} created and checked out successfully for the following repos:[/]\n");
-                _configManager.configs.State.branchQueue.ToList().ForEach(x => AnsiConsole.Markup($"[green]{x.Key}[/]\n"));
+                _configManager.state.BranchQueue.ToList().ForEach(x => AnsiConsole.Markup($"[green]{x.Key}[/]\n"));
             }
             
             if (shouldStageAll)
             {
-                foreach (var (repo, branch) in _configManager.configs.State.branchQueue)
+                foreach (var (repo, branch) in _configManager.state.BranchQueue)
                 {
                     using var repository = new Repository(repo);
                     var status = repository.RetrieveStatus();
@@ -435,7 +530,7 @@ public class BigService
             
             if (shouldPush)
             {
-                foreach (var (repo, branch) in _configManager.configs.State.branchQueue)
+                foreach (var (repo, branch) in _configManager.state.BranchQueue)
                 {
                     using var repository = new Repository(repo);
                     var status = repository.RetrieveStatus();
@@ -464,29 +559,50 @@ public class BigService
         }
     }
 
-    private void FindState(string dir)
+    private void FindState(List<string> dirs)
     {
         AnsiConsole.Status()
             .Start("Thinking...", ctx => 
             {
-                _configManager.configs.State.repos = RepoService.GetReposInCurrentDir(dir);
-                RepoService.GetRemoteBranches(_configManager.configs.State.repos, _configManager.configs.State.remoteBranchQueue);
+                foreach (var dir in dirs)
+                {
+                    try
+                    {
+                        var repos = RepoService.GetReposInCurrentDir(dir);
+                        foreach (var repo in repos)
+                        {
+                            using var repository = new Repository(repo);
+                            if (!_configManager.state.Repos.Contains(repo))
+                            {
+                                _configManager.state.Repos.Add(repo);
+                            }
+                        }
+                        _configManager.AddDirectory(dir);
+                    }
+                    catch (Exception e)
+                    {
+                        AnsiConsole.Markup($"[red]{e.Message}[/]");
+                    }
+                    
+                }
+                // _configManager.state.Repos = RepoService.GetReposInCurrentDir(dir);
+                RepoService.GetRemoteBranches(_configManager.state.Repos, _configManager.state.RemoteBranchQueue);
                 ctx.Status("Thinking some more");
                 ctx.Spinner(Spinner.Known.Star);
                 ctx.SpinnerStyle(Style.Parse("green"));
             });
-        _configManager.configs.State.repos = RepoService.GetReposInCurrentDir(dir);
+        // _configManager.state.Repos = RepoService.GetReposInCurrentDir(dir);
         
-        if (_configManager.configs.State.repos.Count <= 0)
+        if (_configManager.state.Repos.Count <= 0)
         {
             AnsiConsole.MarkupLine("[red]No repos found![/]\n");
         }
-        AnsiConsole.Markup($"[green]Found {_configManager.configs.State.repos.Count} repos in current directory[/]\n");
+        AnsiConsole.Markup($"[green]Found {_configManager.state.Repos.Count} repos in current directory[/]\n");
     }
 
     private void FindDetailState(bool verbose = false)
     {
-        if (_configManager.configs.State.repos.Count <= 0)
+        if (_configManager.state.Repos.Count <= 0)
         {
             AnsiConsole.MarkupLine("[red]No repos found![/]");
             AnsiConsole.MarkupLine("[red]Try passing the -a flag to search All sub directories.[/]\n");
@@ -499,7 +615,7 @@ public class BigService
         var colors = new [] { "red", "palegreen1_1", "darkorange3_1", "gold3_1", "deeppink1_1", "lightsalmon1", "paleturquoise1" };
         var random = new Random();
 
-        foreach (var repo in _configManager.configs.State.repos)
+        foreach (var repo in _configManager.state.Repos)
         {
             
             using var repository = new Repository(repo);
@@ -512,7 +628,7 @@ public class BigService
             var repoNode = root.AddNode($"[{color}]{details.Info.Path}[/]");
             var filesChanged = repoNode.AddNode($"[red3_1]Files Changed: {files.Count}[/]");
             var conflicts = repoNode.AddNode($"[deeppink3]Conflicts: {details.Index.Conflicts.Count()}[/]");
-            var localBranch = repoNode.AddNode($"[deeppink3_1]Local Branch: {details.Branches.First().FriendlyName}[/]");
+            var localBranch = repoNode.AddNode($"[deeppink3_1]Local Branch: {RepoService.GetLocalBranchName(repository)}[/]");
             var branches = repoNode.AddNode($"[magenta3_1]Branches: {details.Branches.Count()}[/]");
             var stashes = repoNode.AddNode($"[magenta2]Stashes: {details.Stashes.Count()}[/]");
             var head = repoNode.AddNode($"[hotpink2]Head: {details.Head.RemoteName}[/]");
@@ -582,10 +698,10 @@ public class BigService
 
     private void ShowRepos()
     {
-        if (_configManager.configs.State.repos.Count > 0)
+        if (_configManager.state.Repos.Count > 0)
         {
             AnsiConsole.MarkupLine("[green]Found the following repos:[/]");
-            _configManager.configs.State.repos.ForEach(x => AnsiConsole.MarkupLine($"[blue]{x}[/]"));
+            _configManager.state.Repos.ForEach(x => AnsiConsole.MarkupLine($"[blue]{x}[/]"));
         }
         else
         {
@@ -595,10 +711,10 @@ public class BigService
 
     private void ShowCommit()
     {
-        if (_configManager.configs.State.commitQueue.Count > 0)
+        if (_configManager.state.CommitQueue.Count > 0)
         {
             AnsiConsole.MarkupLine("[green]Found the following commits:[/]");
-            _configManager.configs.State.commitQueue.ForEach(x => AnsiConsole.MarkupLine($"[blue]{x}[/]\n"));
+            _configManager.state.CommitQueue.ForEach(x => AnsiConsole.MarkupLine($"[blue]{x}[/]\n"));
         }
         else
         {
@@ -608,10 +724,10 @@ public class BigService
 
     private void ShowBranches()
     {
-        if (_configManager.configs.State.branchQueue.Count > 0)
+        if (_configManager.state.BranchQueue.Count > 0)
         {
             AnsiConsole.MarkupLine("[green]Found the following branches:[/]");
-            _configManager.configs.State.branchQueue.ToList().ForEach(x =>
+            _configManager.state.BranchQueue.ToList().ForEach(x =>
             {
                 AnsiConsole.MarkupLine($"[blue]{x.Key}[/]\n");
                 AnsiConsole.MarkupLine($"[blue]{x.Value}[/]\n");
@@ -640,7 +756,7 @@ public class BigService
         // Add selected repos to commit queue
         foreach (var repoPrompt in repoPrompts)
         {
-            _configManager.configs.State.branchQueue.Add(repoPrompt, "");
+            _configManager.state.BranchQueue.TryAdd(repoPrompt, "");
         }
         
     }
@@ -659,7 +775,7 @@ public class BigService
         repoPrompts.ForEach(x => AnsiConsole.MarkupLine($"[blue]{x}[/]"));
         
         // Add selected repos to commit queue
-        _configManager.configs.State.commitQueue.AddRange(repoPrompts);
+        _configManager.state.CommitQueue.AddRange(repoPrompts);
     }
 
     private List<string> RepoSelectPrompt(string instructions)
@@ -679,7 +795,7 @@ public class BigService
                 .InstructionsText(
                     "[grey](Press [blue]<space>[/] to toggle a repo, " +
                     "[green]<enter>[/] to accept)[/]")
-                .AddChoiceGroup("Repos", _configManager.configs.State.repos));
+                .AddChoiceGroup("Repos", _configManager.state.Repos));
 
         // Write the selected repos to the terminal
         foreach (string repo in repoPrompts)
@@ -690,30 +806,34 @@ public class BigService
         return repoPrompts;
     }
     
-    private List<string> YesNoSelectPrompt(string instructions)
+    private string CustomPrompt(string instructions, string title, List<string> options)
+    {
+        AnsiConsole.Markup($"[green]{instructions}[/]\n");
+
+        var prompt = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title(title)
+                .PageSize(10)
+                .Mode(SelectionMode.Leaf)
+                .AddChoices(options));
+
+        return prompt;
+    }
+    
+    private string YesNoSelectPrompt(string instructions)
     {
         AnsiConsole.Markup($"[green]{instructions}[/]\n");
         var table = new Table();
         table.AddColumn("Repo #");
         table.AddColumn("Repo Name");
 
-        var repoPrompts = AnsiConsole.Prompt(
-            new MultiSelectionPrompt<string>()
+        var repoPrompt = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
                 .Title("Select [green]Yes[/] or [red]No[/]?")
-                .NotRequired()
                 .PageSize(10)
                 .Mode(SelectionMode.Leaf)
-                .InstructionsText(
-                    "[grey](Press [blue]<space>[/] to select, " +
-                    "[green]<enter>[/] to accept)[/]")
                 .AddChoices(new[]{"Yes", "No"}));
 
-        // Write the selected repos to the terminal
-        foreach (string repo in repoPrompts)
-        {
-            AnsiConsole.WriteLine(repo);
-        }
-
-        return repoPrompts;
+        return repoPrompt;
     }
 }

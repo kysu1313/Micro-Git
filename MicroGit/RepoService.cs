@@ -2,7 +2,7 @@
 using LibGit2Sharp.Handlers;
 using Spectre.Console;
 
-namespace GitBig;
+namespace MicroGit;
 using LibGit2Sharp;
 
 public class RepoService
@@ -22,7 +22,7 @@ public class RepoService
         return repos;
     }
     
-    public static void GetRemoteBranches(List<string> _repos, Dictionary<string, List<string>> _remoteBranchQueue)
+    public static void GetRemoteBranches(List<string> _repos, Dictionary<string, List<string>> _RemoteBranchQueue)
     {
         foreach (var repo in _repos)
         {
@@ -35,29 +35,49 @@ public class RepoService
                 lst.Add(branch.CanonicalName);
                 // AnsiConsole.Markup($"[green]{branch.CanonicalName.Replace("refs/heads/", "")}[/] - [blue]Is remote tracking: {branch.IsRemoteTrackingBranch}[/]\n");
             }
-            _remoteBranchQueue.TryAdd(repo, lst);
+            _RemoteBranchQueue.TryAdd(repo, lst);
         }
     }
 
-    public static void PushChanges(Repository repo, ConfigManager _config)
+    public static void PushChanges(Repository repo, string commitMessage, ConfigManager _config)
     {
         try {
             var remote = repo.Network.Remotes["origin"];
-
             var uname = _config.GetUsername();
             var pass = _config.GetPersonalAccessToken();
-            var options = new PushOptions() 
-                {CredentialsProvider = (url, user, cred) => 
-                    new UsernamePasswordCredentials {Username = uname, Password = pass}};
+            var pushOptions = new PushOptions()
+            {
+                CredentialsProvider = (url, user, cred) =>
+                    new UsernamePasswordCredentials { Username = uname, Password = pass }
+            };
             
             // var options = new PushOptions() 
             // {CredentialsProvider = (url, user, cred) => 
             //     new DefaultCredentials()}; // This is for Active Directory ???????
 
+            var localBranch = GetLocalBranch(repo);
+            var trackedBranch = localBranch.TrackedBranch;
+
+            if (trackedBranch == null)
+            {
+                repo.Branches.Update(repo.Head, updater =>
+                {
+                    updater.Remote = repo.Network.Remotes["origin"].Name;
+                    updater.UpstreamBranch = repo.Head.CanonicalName;
+                });
+                localBranch = GetLocalBranch(repo);
+            }
+
+            repo.Branches.Update(localBranch, b => 
+                b.TrackedBranch = localBranch.TrackedBranch.CanonicalName );
+
             var pushRefSpec = @"refs/heads/main";
             var authorName = repo.Config.Get<string>("user.name").Value;
             var author = new Signature(authorName, "na", DateTimeOffset.Now);
-            repo.Network.Push(remote, pushRefSpec, options);
+            repo.Commit(commitMessage, author, author);
+            repo.Network.Push(localBranch, pushOptions); // YES IT FINALLY WORKS :D
+            // repo.Network.Push(remote, pushRefSpec, pushOptions);
+            
         }
         catch (Exception e) {
             if (e.Message.Contains("401")) {
@@ -70,6 +90,8 @@ public class RepoService
             }
         }
     }
+    
+    public void SetUpstreamBranch(){}
 
     private void PushViaCmd()
     {
@@ -88,9 +110,9 @@ public class RepoService
         Console.WriteLine(cmd.StandardOutput.ReadToEnd());
     }
     
-    public static void FetchRemoteBranches(Dictionary<string, List<string>> _remoteBranchQueue)
+    public static void FetchRemoteBranches(Dictionary<string, List<string>> _RemoteBranchQueue)
     {
-        foreach (var repo in _remoteBranchQueue)
+        foreach (var repo in _RemoteBranchQueue)
         {
             using var repository = new Repository(repo.Key);
             foreach (var branch in repo.Value)
@@ -107,9 +129,9 @@ public class RepoService
         }
     }
     
-    public static void PushRemoteBranches(Dictionary<string, List<string>> _remoteBranchQueue)
+    public static void PushRemoteBranches(Dictionary<string, List<string>> _RemoteBranchQueue)
     {
-        foreach (var repo in _remoteBranchQueue)
+        foreach (var repo in _RemoteBranchQueue)
         {
             using var repository = new Repository(repo.Key);
             var details = GetRepoDetails(repo.Key);
@@ -149,6 +171,16 @@ public class RepoService
     {
         return Directory.GetDirectories(path, String.Empty, SearchOption.TopDirectoryOnly);
     }
+
+    public static string GetLocalBranchName(Repository repo)
+    {
+        return repo.Branches.First(x => x.IsCurrentRepositoryHead).FriendlyName;
+    }
+
+    public static Branch GetLocalBranch(Repository repo)
+    {
+        return repo.Branches.First(x => x.IsCurrentRepositoryHead);
+    }
     
     public static Repository GetRepoDetails(string path)
     {
@@ -160,7 +192,7 @@ public class RepoService
     {
         var repo = new Repository(path);
         // var author = new Signature(repo.Index., "
-        // repo.Commit(message, new Signature("GitBig", "
+        // repo.Commit(message, new Signature("MicroGit", "
         return true;
     }
 }
