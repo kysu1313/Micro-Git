@@ -1,4 +1,6 @@
 ﻿using LibGit2Sharp;
+using LibGit2Sharp.Handlers;
+using MicroGit.HelperFunctions;
 using Spectre.Console;
 using Tree = Spectre.Console.Tree;
 
@@ -38,6 +40,7 @@ public class BigService
         { "[sandybrown]-sc, --show-commit-queue[/]", "[sandybrown]Show current commit queue #.[/]" },
         { "[deeppink1_1]-sb, --show-branch-queue[/]", "[deeppink1_1]Show current branch queue #.[/]" },
         { "[gold3]-se, --select[/]", "[gold3]Select repos to commit #.[/]" },
+        { "[lightsalmon3_1]-su, --set-upstream[/]", "[lightsalmon3_1]Set the upstream branch for selected repos#.[/]" },
         { "[deeppink3]-bcsp, --branch-checkout-stage-push[/]", "[deeppink3]Create new branch for selected repos, checkout branch, stage all and push #.[/]" },
         { "[deeppink4_2]-dc, --delete-credentials[/]", "[deeppink4_2]Delete saved credentials #.[/]" },
         { "[yellow]-h, --help[/]", "[yellow]Show command table #.[/]" },
@@ -200,33 +203,158 @@ public class BigService
 
     private void SetUpstreamBranches()
     {
-        var selectedRepos = RepoSelectPrompt("Select repos to show diff for");
-
-        var root = new Tree("Diffs");
-        foreach (var repoPath in selectedRepos)
+        try
         {
-            var repoName = repoPath.Split('\\').Last();
-            var repoNode = root.AddNode($"[yellow]{repoName}[/]");
+            var createNewRemote = "Create new remote";
+            var usePreviousBranchName = false;
+            var createdBranchName = string.Empty;
+            var selectedRepos = Utils<string>.RepoSelectPrompt("Select repos you want to set upstream branches for:", _configManager);
 
-            using (var repo = new Repository(repoPath))
+            var root = new Tree("Diffs");
+            foreach (var repoPath in selectedRepos)
             {
-                var innerTable = new Table()
-                    .RoundedBorder();
-                innerTable.AddColumn("Details");
+                var repoName = repoPath.Split('\\').Last();
+                var repoNode = root.AddNode($"[yellow]{repoName}[/]");
 
-                // Get the current branch
-                Branch currentBranch = repo.Head;
-
-                // Get the upstream branch
-                var upstream = currentBranch.TrackedBranch;
-                
-                if (upstream == null)
-                {
-                    AnsiConsole.MarkupLine($"[red]No upstream branch for {repoName}[/]");
-                    continue;
-                }
+                createdBranchName = SetUpstreamLogic(repoPath, repoName, createdBranchName, createNewRemote, 
+                    ref usePreviousBranchName);
             }
         }
+        catch (Exception e)
+        {
+            Utils<string>.WriteErrorIssue(e);
+        }
+    }
+
+    private string SetUpstreamLogic(string repoPath, string repoName, string createdBranchName, string createNewRemote,
+        ref bool usePreviousBranchName)
+    {
+        var remoteBranchName = string.Empty;
+        using (var repo = new Repository(repoPath))
+        {
+            // var remotes = repo.Network.Remotes;
+            var allRemoteBranches = RepoService.GetAllRemoteBranches(repo, _configManager);
+            var remotes = allRemoteBranches.Select(elem => elem.CanonicalName
+                    .Replace("refs/heads/", "")).ToList();
+            if (!remotes.Any())
+            {
+                AnsiConsole.MarkupLine($"[red]No remotes for {repoName}.[/]");
+                var shouldFetch = Utils<string>.CustomPrompt("Would you like to try to set upstream to origin/main?",
+                    "Set upstream", new() { "Yes", "No" });
+                if (string.Equals(shouldFetch, "Yes"))
+                {
+                    AnsiConsole.MarkupLine("What is the remote url?");
+                    AnsiConsole.Markup("url >> ");
+                    var remoteUrl = Console.ReadLine();
+                    var remote = repo.Network.Remotes.Add("origin", remoteUrl ?? "");
+                }
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(createdBranchName))
+                {
+                    var selction = Utils<string>.CustomPrompt($"Do you want to re-use the branch name {createdBranchName}?:",
+                        "Set upstream", new() { "Yes", "No" });
+                    usePreviousBranchName = string.Equals(selction, "Yes", StringComparison.OrdinalIgnoreCase);
+                }
+
+                if (!usePreviousBranchName)
+                {
+                    // Get the remote branch name (or create a new one)
+                    var options = remotes.ToList();
+                    options.Add(createNewRemote);
+
+                    remoteBranchName = RepoService.GetRemoteBranchName(repoName, remoteBranchName, options, repo);
+
+                    // if (string.Equals(remoteBranchName, createNewRemote, StringComparison.OrdinalIgnoreCase))
+                    // {
+                        remoteBranchName = CreateRemoteBranchBasedOn(repoPath, remotes);
+                    // }
+
+                    if (string.IsNullOrEmpty(createdBranchName))
+                        createdBranchName = remoteBranchName;
+                }
+                else
+                {
+                    remoteBranchName = createdBranchName;
+                }
+
+                // Get the upstream branch
+                var localBranch = RepoService.GetLocalBranch(repo);
+                var trackedBranch = localBranch.TrackedBranch;
+
+                if (trackedBranch == null)
+                {
+                    var upstreamBranchName = repo.Head.CanonicalName;
+                    if (upstreamBranchName == null)
+                    {
+                        upstreamBranchName = CreateRemoteBranchBasedOn(repoPath, remotes);
+                    }
+                    repo.Branches.Update(repo.Head, updater =>
+                    {
+                        updater.Remote = repo.Network.Remotes[remoteBranchName].Name;
+                        updater.UpstreamBranch = upstreamBranchName;
+                    });
+                    localBranch = RepoService.GetLocalBranch(repo);
+                }
+
+                repo.Branches.Update(localBranch, b =>
+                    b.TrackedBranch = localBranch.TrackedBranch.CanonicalName);
+            }
+        }
+
+        return createdBranchName;
+    }
+
+    private string CreateRemoteBranchBasedOn(string repoPath, List<string> remotes)
+    {
+        string selectNewBranch = "Select a new branch";
+        var setTrackingBranch = "Set a tracking branch";
+        string remoteBranchName = String.Empty;
+        string basedOnBranch = String.Empty;
+        bool isValidRemoteBranch = false;
+        while (!isValidRemoteBranch)
+        {
+            
+            
+            /*
+             * TODO:
+             * 1. Get the remote branch name
+             * 2. Get the branch to base the new remote branch on
+             * 3. Create the new remote branch
+             * 4. Set the upstream branch
+             * 5. Set the tracking branch
+             * 6. Push the new remote branch
+             */
+            
+            
+            remoteBranchName = Utils<string>.GetInput("Enter the name of the new remote branch:");
+            basedOnBranch = Utils<string>.CustomPrompt("Select the branch you want to base the new remote branch on:",
+                "Select remote", remotes.ToList());
+            var remoteBranch = RepoService.GetRemoteBranch(basedOnBranch, repoPath);
+            if (remoteBranch != null && remoteBranch.IsTracking)
+            {
+                break;
+            }
+            AnsiConsole.MarkupLine($"[red]The branch {basedOnBranch} is not tracking a branch.[/]");
+            var selection = Utils<string>.CustomPrompt("Would you like to:",
+                "Select remote", new() { selectNewBranch, setTrackingBranch });
+
+            // switch (selection)
+            // {
+            //     case "Select a new branch":
+            //         break;
+            //     case "Set a tracking branch":
+            //         var trackingBranch = Utils<string>.CustomPrompt("Select the branch you want to track:",
+            //             "Select remote", remotes.ToList());
+            //         RepoService.SetTrackingBranch(trackingBranch, repoPath);
+            //         break;
+            // }
+        }
+        
+        remoteBranchName =
+            RepoService.CreateRemoteBranch(remoteBranchName, basedOnBranch, repoPath, _configManager);
+        return remoteBranchName;
     }
 
     private void DeleteCredentials()
@@ -236,9 +364,9 @@ public class BigService
 
     private void GetCredentials()
     {
-        var remoteHost = CustomPrompt("What remote host are you using?", "Remote Host", new()
+        var remoteHost = Utils<RemoteTypes>.CustomPrompt<RemoteTypes>("What remote host are you using?", "Remote Host", new()
         {
-            RemoteTypes.GitHub.ToString(), RemoteTypes.GitLab.ToString(), RemoteTypes.TFS.ToString()
+            RemoteTypes.GitHub, RemoteTypes.GitLab, RemoteTypes.TFS
         });
 
         if (string.Equals(remoteHost, RemoteTypes.TFS.ToString()))
@@ -247,8 +375,10 @@ public class BigService
             _configManager.SetRemoteType(RemoteTypes.TFS);
             return;
         }
+
+        _configManager.SetRemoteType(remoteHost);
         
-        var saveCreds = YesNoSelectPrompt("Do you want to save your credentials? (Recommended) They will be encrypted.");
+        var saveCreds = Utils<string>.YesNoSelectPrompt("Do you want to save your credentials? (Recommended) They will be encrypted.");
         bool shouldSave = string.Equals(saveCreds, "Yes", StringComparison.OrdinalIgnoreCase);
         AnsiConsole.Markup("[green]Enter your GIT username[/]");
         AnsiConsole.Markup("[green]Username: [/]");
@@ -257,7 +387,7 @@ public class BigService
         AnsiConsole.Markup("[red]Your token must have the \"repo\" scope in order to push to private repos.[/]\n");
         AnsiConsole.Markup("[red]---If you're not sure how to get this, \n---check out the instructions at the link below: \nhttps://docs.github.com/en/enterprise-server@3.4/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token[/]");
         AnsiConsole.Markup("\n[green]Token: [/]");
-        var password = Utils.GetPassword();
+        var password = Utils<string>.GetPassword();
         if (string.IsNullOrEmpty(password))
         {
             AnsiConsole.Markup("[green]No password provided. :([/]\n");
@@ -284,6 +414,13 @@ public class BigService
         {
             AnsiConsole.Markup($"[green]Branch: {stateBranch.Key}[/]\n");
         }
+        
+        var (email, un, pwd, pat, host) = _configManager.GetSavedCredentials();
+        AnsiConsole.Markup($"[green]Email: [/][yellow]{email}[/]\n");
+        AnsiConsole.Markup($"[green]Username: [/][yellow]{un}[/]\n");
+        AnsiConsole.Markup($"[green]Password (encrypted): [/][yellow]{pwd}[/]\n");
+        AnsiConsole.Markup($"[green]PersonalAccessToken (encrypted): [/][yellow]{pat}[/]\n");
+        AnsiConsole.Markup($"[green]RemoteHost: [/][yellow]{host}[/]\n");
     } 
 
     private void SetDirectory(IReadOnlyList<string> args)
@@ -388,7 +525,7 @@ public class BigService
     {
         // Show diff of selected repos compared to remote
 
-        var selectedRepos = RepoSelectPrompt("Select repos to show diff for");
+        var selectedRepos = Utils<string>.RepoSelectPrompt("Select repos to show diff for", _configManager);
 
         var root = new Tree("Diffs");
         foreach (var repoPath in selectedRepos)
@@ -494,7 +631,7 @@ public class BigService
 
             if (!shouldCheckout)
             {
-                var shouldCheckoutBranch = YesNoSelectPrompt($"Do you want to checkout the branch {branchName} for all repos?");
+                var shouldCheckoutBranch = Utils<string>.YesNoSelectPrompt($"Do you want to checkout the branch {branchName} for all repos?");
                 if (string.Equals(shouldCheckoutBranch, "Yes", StringComparison.OrdinalIgnoreCase))
                 {
                     didCheckout = true;
@@ -742,7 +879,8 @@ public class BigService
     private void SelectReposToBranch()
     {
         
-        var repoPrompts = RepoSelectPrompt("[green]Select repos to create a new branch for.[/]\n");
+        var repoPrompts = 
+            Utils<string>.RepoSelectPrompt("[green]Select repos to create a new branch for.[/]\n", _configManager);
 
         if (repoPrompts.Count <= 0)
         {
@@ -763,7 +901,8 @@ public class BigService
 
     private void SelectState()
     {
-        var repoPrompts = RepoSelectPrompt("[green]Select a repo to add to commit queue.[/]\n");
+        var repoPrompts = 
+            Utils<string>.RepoSelectPrompt("[green]Select a repo to add to commit queue.[/]\n", _configManager);
         
         if (repoPrompts.Count <= 0)
         {
@@ -778,62 +917,4 @@ public class BigService
         _configManager.state.CommitQueue.AddRange(repoPrompts);
     }
 
-    private List<string> RepoSelectPrompt(string instructions)
-    {
-        AnsiConsole.Markup($"[green]{instructions}[/]\n");
-        var table = new Table();
-        table.AddColumn("Repo #");
-        table.AddColumn("Repo Name");
-
-        var repoPrompts = AnsiConsole.Prompt(
-            new MultiSelectionPrompt<string>()
-                .Title("Select your [green]repos[/]")
-                .NotRequired()
-                .PageSize(10)
-                .Mode(SelectionMode.Leaf)
-                .MoreChoicesText("[grey](Move up and down to reveal more repos)[/]")
-                .InstructionsText(
-                    "[grey](Press [blue]<space>[/] to toggle a repo, " +
-                    "[green]<enter>[/] to accept)[/]")
-                .AddChoiceGroup("Repos", _configManager.state.Repos));
-
-        // Write the selected repos to the terminal
-        foreach (string repo in repoPrompts)
-        {
-            AnsiConsole.WriteLine(repo);
-        }
-
-        return repoPrompts;
-    }
-    
-    private string CustomPrompt(string instructions, string title, List<string> options)
-    {
-        AnsiConsole.Markup($"[green]{instructions}[/]\n");
-
-        var prompt = AnsiConsole.Prompt(
-            new SelectionPrompt<string>()
-                .Title(title)
-                .PageSize(10)
-                .Mode(SelectionMode.Leaf)
-                .AddChoices(options));
-
-        return prompt;
-    }
-    
-    private string YesNoSelectPrompt(string instructions)
-    {
-        AnsiConsole.Markup($"[green]{instructions}[/]\n");
-        var table = new Table();
-        table.AddColumn("Repo #");
-        table.AddColumn("Repo Name");
-
-        var repoPrompt = AnsiConsole.Prompt(
-            new SelectionPrompt<string>()
-                .Title("Select [green]Yes[/] or [red]No[/]?")
-                .PageSize(10)
-                .Mode(SelectionMode.Leaf)
-                .AddChoices(new[]{"Yes", "No"}));
-
-        return repoPrompt;
-    }
 }
