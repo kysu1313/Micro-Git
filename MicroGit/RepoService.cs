@@ -85,7 +85,8 @@ public class RepoService
         }
     }
 
-    public static string CreateRemoteBranch(string branchName, string basedOnBranchName, string repoPath, ConfigManager config)
+    public static string CreateRemoteBranch(string branchName, string basedOnBranchName, 
+        string repoPath, ConfigManager config)
     {
         try
         {
@@ -113,8 +114,6 @@ public class RepoService
         return "";
     }
     
-    
-
     public static string GetRemoteBranchName(string repoName, string remoteBranchName, List<string> options, Repository repo)
     {
         bool validBranchName = false;
@@ -173,81 +172,28 @@ public class RepoService
 
         return null;
     }
-    
-    public void SetUpstreamBranch(){}
 
-    private void PushViaCmd()
+    private static FetchOptions? GetFetchOptions(ConfigManager config)
     {
-        Process cmd = new Process();
-        cmd.StartInfo.FileName = "cmd.exe";
-        cmd.StartInfo.RedirectStandardInput = true;
-        cmd.StartInfo.RedirectStandardOutput = true;
-        cmd.StartInfo.CreateNoWindow = true;
-        cmd.StartInfo.UseShellExecute = false;
-        cmd.Start();
-
-        cmd.StandardInput.WriteLine("echo Oscar");
-        cmd.StandardInput.Flush();
-        cmd.StandardInput.Close();
-        cmd.WaitForExit();
-        Console.WriteLine(cmd.StandardOutput.ReadToEnd());
-    }
-    
-    public static void FetchRemoteBranches(Dictionary<string, List<string>> _RemoteBranchQueue)
-    {
-        foreach (var repo in _RemoteBranchQueue)
+        try
         {
-            using var repository = new Repository(repo.Key);
-            foreach (var branch in repo.Value)
+            var fetchOptions = new FetchOptions()
             {
-                var remoteBranch = repository.Branches[branch];
-                var localBranch = repository.Branches[branch.Replace("refs/remotes/origin/", "")];
-                if (localBranch == null)
-                {
-                    localBranch = repository.CreateBranch(branch.Replace("refs/remotes/origin/", ""), remoteBranch.Tip);
-                }
-                Commands.Checkout(repository, localBranch);
-                repository.Reset(ResetMode.Hard, remoteBranch.Tip);
-            }
+                CredentialsProvider = (url, user, cred) =>
+                    new UsernamePasswordCredentials
+                    {
+                        Username = config.GetUsername(), 
+                        Password = config.GetPersonalAccessToken()
+                    }
+            };
+            return fetchOptions;
         }
-    }
-    
-    public static void PushRemoteBranches(Dictionary<string, List<string>> _RemoteBranchQueue)
-    {
-        foreach (var repo in _RemoteBranchQueue)
+        catch (Exception e)
         {
-            using var repository = new Repository(repo.Key);
-            var details = GetRepoDetails(repo.Key);
-            Remote remote = repository.Network.Remotes["origin"];
-
-            // The local branch "b1" will track a branch also named "b1"
-            // in the repository pointed at by "origin"
-
-            repository.Branches.Update(repository.Head,
-                b => b.Remote = remote.Name,
-                b => b.UpstreamBranch = repository.Head.CanonicalName);
-            
-            
-            // Thus Push will know where to push this branch (eg. the remote)
-            // and which branch it should target in the target repository
-
-            repository.Network.Push(repository.Head, new PushOptions
-            {
-                // CredentialsProvider = (url, usernameFromUrl, types) =>
-                //     new UsernamePasswordCredentials
-                //     {
-                //         Username = details.Username,
-                //         Password = details.Password
-                //     }
-            });
-
-            // Do some stuff
-            // ....
-
-            // One can call Push() again without having to configure the branch
-            // as everything has already been persisted in the repository config file
-            // repository.Network.Push(localBranch, pushOptions);
+            Utils<string>.WriteErrorIssue(e);
         }
+
+        return null;
     }
 
     public static string[] GetDirsInCurrentDir(string path)
@@ -279,11 +225,12 @@ public class RepoService
         return true;
     }
 
-    public static List<Reference>? GetAllRemoteBranches(Repository repo, ConfigManager configManager)
+    public static List<Reference>? GetAllRemoteBranches(
+        Repository repo, ConfigManager configManager, bool getTrackingOnly = false)
     {
         try
         {
-            return Repository.ListRemoteReferences(
+            var refs = Repository.ListRemoteReferences(
                     repo.Network.Remotes.First().Url, 
                     (_, _, _) =>
                         new UsernamePasswordCredentials
@@ -292,6 +239,7 @@ public class RepoService
                             Password = configManager.GetPersonalAccessToken()
                         })
                 .Where(elem => elem.IsLocalBranch).ToList();
+            return getTrackingOnly ? refs.Where(elem => elem.IsRemoteTrackingBranch).ToList() : refs;
         }
         catch (Exception e)
         {
@@ -300,4 +248,110 @@ public class RepoService
 
         return null;
     }
+
+    public static bool CheckIfRemoteBranchExists(Repository repo, string remoteBranchName)
+    {
+        try
+        {
+            var remoteBranch = repo.Branches[remoteBranchName];
+            return (remoteBranch != null && remoteBranch.IsTracking);
+        }
+        catch (Exception e)
+        {
+            Utils<string>.WriteErrorIssue(e);
+        }
+
+        return false;
+    }
+    
+    public static Branch? GetTrackedBranch(Repository repo, string branchName)
+    {
+        try
+        {
+            var branch = repo.Branches[branchName];
+            if (branch != null)
+            {
+                return branch.TrackedBranch;
+            }
+        }
+        catch (Exception e)
+        {
+            Utils<string>.WriteErrorIssue(e);
+        }
+
+        return null;
+    }
+    
+    public static List<Branch>? GetRemoteTrackingBranches(Repository repo)
+    {
+        try
+        {
+            return repo.Branches
+                .Where(elem => elem.IsTracking && elem.IsRemote).ToList();
+        }
+        catch (Exception e)
+        {
+            Utils<string>.WriteErrorIssue(e);
+        }
+
+        return null;
+    }
+
+    public static void FetchLogic(string repoPath, ConfigManager configManager)
+    {
+        try
+        {
+            using var repo = new Repository(repoPath);
+            Commands.Fetch(repo, "origin", new string[0], GetFetchOptions(configManager), 
+                "Fetching updates");
+        }
+        catch (Exception e)
+        {
+            Utils<string>.WriteErrorIssue(e);
+        }
+    }
+
+    public static void PullLogic(string repoPath, MergeOptions mergeOptions, ConfigManager configManager)
+    {
+        try
+        {
+            using var repo = new Repository(repoPath);
+            var options = new PullOptions
+            {
+                MergeOptions = mergeOptions
+            };
+            var signature = new Signature(new Identity("Your name", "Your email"), 
+                DateTimeOffset.Now);
+            var result = Commands.Pull(repo, signature, options);
+        }
+        catch (Exception e)
+        {
+            Utils<string>.WriteErrorIssue(e);
+        }
+    }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

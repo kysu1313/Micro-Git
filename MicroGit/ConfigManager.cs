@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Text.Json;
+using LibGit2Sharp;
 
 namespace MicroGit;
 
@@ -151,5 +152,16 @@ public class ConfigManager
     {
         state.CurrentDirectories = dirs;
         Save();
+    }
+
+    public void SetMergeOptions(MergeOptions mergeOptions)
+    {
+        state.MergeOptions = mergeOptions;
+        Save();
+    }
+    
+    public MergeOptions? GetMergeOptions()
+    {
+        return state.MergeOptions;
     }
 }

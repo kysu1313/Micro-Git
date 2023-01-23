@@ -1,8 +1,9 @@
-﻿using Spectre.Console;
+﻿using LibGit2Sharp;
+using Spectre.Console;
 
 namespace MicroGit.HelperFunctions;
 
-public class Utils<T>
+public static class Utils<T>
 {
     private static string _errorIssuePrompt = $"[red]If you think this is a bug, please create an issue on GitHub:[/]";
     private static string _errorIssueLink = $"[blue]https://github.com/kysu1313/Micro-Git/issues[/]";
@@ -24,7 +25,11 @@ public class Utils<T>
         AnsiConsole.MarkupLine(_errorIssuePrompt);
         AnsiConsole.MarkupLine(_errorIssueLink);
     }
-    
+
+    public static string NameFromPath(string path)
+    {
+        return path.Split('\\').Last();
+    }
     
     public static List<string> RepoSelectPrompt(string instructions, ConfigManager _configManager)
     {
@@ -121,6 +126,52 @@ public class Utils<T>
         } while (key != ConsoleKey.Enter);
         
         return pass;
+    }
+
+    public static MergeOptions ParseMergeOptions(string ffStrat, string mergeFavor, string conflictStrat)
+    {
+        var mergeOptions = new MergeOptions();
+        
+        switch (ffStrat)
+        {
+            case "Only fast forward":
+                mergeOptions.FastForwardStrategy = FastForwardStrategy.FastForwardOnly;
+                break;
+            case "Do not fast forward":
+                mergeOptions.FastForwardStrategy = FastForwardStrategy.NoFastForward;
+                break;
+            case "Fast forward if possible, otherwise, don't fast forward":
+                mergeOptions.FastForwardStrategy = FastForwardStrategy.Default;
+                break;
+        }
+        
+        switch (mergeFavor)
+        {
+            case "Create merge file":
+                mergeOptions.MergeFileFavor = MergeFileFavor.Normal;
+                break;
+            case "Current branch":
+                mergeOptions.MergeFileFavor = MergeFileFavor.Ours;
+                break;
+            case "Their branch":
+                mergeOptions.MergeFileFavor = MergeFileFavor.Theirs;
+                break;
+        }
+        
+        switch (conflictStrat)
+        {
+            case "Keep mine":
+                mergeOptions.FileConflictStrategy = CheckoutFileConflictStrategy.Ours;
+                break;
+            case "Keep theirs":
+                mergeOptions.FileConflictStrategy = CheckoutFileConflictStrategy.Theirs;
+                break;
+            case "Create merge files for conflicts":
+                mergeOptions.FileConflictStrategy = CheckoutFileConflictStrategy.Merge;
+                break;
+        }
+        
+        return mergeOptions;
     }
     
 }
