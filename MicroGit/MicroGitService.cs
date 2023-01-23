@@ -1,5 +1,7 @@
-﻿using LibGit2Sharp;
-using LibGit2Sharp.Handlers;
+﻿using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using LibGit2Sharp;
 using MicroGit.HelperFunctions;
 using Spectre.Console;
 using Tree = Spectre.Console.Tree;
@@ -11,46 +13,47 @@ namespace MicroGit;
  * https://github.com/libgit2/libgit2sharp/blob/a4c6c4552b24590995c221304e7d7c75c181ea82/LibGit2Sharp.Tests/BranchFixture.cs#L574-L603
  */
 
-public class BigService
+public class MicroGitService
 {
     private Dictionary<string, string> _commonCommands = new()
     {
         { "", "" },
         { "Frequently Used Commands", "-------------------------------------------------------------------" },
-        { "[palegreen1_1]-cr, --creds[/]", "[palegreen1_1]Set your GIT login credentials! (Required to push)[/]" },
-        { "[deeppink3]-c <message>, --commit <message>[/]", "[deeppink3]Commit the selected repos (stages ALL changes) with <message> commit message #.[/]" },
-        { "[paleturquoise1]-d, --details[/]", "[paleturquoise1]Show details of the repo #.[/]" },
-        { "[lightsalmon3_1]-bc, --branch-checkout[/]", "[lightsalmon3_1]Create new branch and check it out for selected repos #.[/]" },
-        { "[magenta2]-th, --token-help[/]", "[magenta2]Show instructions on how to create a Personal Access Token for GitHub #.[/]" },
-        { "[purple]-dr, --dir <path>[/]", "[purple]Set the directory to search from #.[/]" },
-        { "[deeppink3]-da, --dir-add <path>[/]", "[deeppink3]Add additional directories to be searched #.[/]" },
-        { "[red]-e, --exit <#>[/]", "[red]Exit[/]" },
+        { "[red3_1]-cr, --creds[/]", "[red3]Set your GIT login credentials! (Required to push)[/]" },
+        { "[red3]-c --commit[/]", "[red3]Commit the selected repos (stages ALL changes) with <message> commit message #.[/]" },
+        { "[darkorange3_1]-fe, --fetch[/]", "[darkorange3_1]Fetch remote changes for selected branches #.[/]" },
+        { "[darkorange3]-pu, --pull[/]", "[darkorange3]Pull remote changes for selected branches #.[/]" },
+        { "[lightsalmon3_1]-d, --details (-v for verbose)[/]", "[lightsalmon3_1]Show details of the repo #.[/]" },
+        { "[lightgoldenrod3]-th, --token-help[/]", "[lightgoldenrod3]Show instructions on how to create a Personal Access Token for GitHub #.[/]" },
+        { "[orange3]-bc, --branch-checkout[/]", "[orange3]Create new branch and check it out for selected repos #.[/]" },
+        { "[gold3_1]-dr, --dir <path>[/]", "[gold3_1]Set the directory to search from #.[/]" },
+        { "[yellow3_1]-da, --dir-add <path>[/]", "[yellow3_1]Add additional directories to be searched #.[/]" },
+        { "[chartreuse1]-e, --exit <#>[/]", "[chartreuse1]Exit[/]" },
     };
-    private Dictionary<string, string> _commands = new () 
+    private Dictionary<string, string> _commands = new ()
     {
         { "", "" },
         { "Additional Commands", "-------------------------------------------------------------------" },
-        { "[deeppink3]-b, --branch[/]", "[deeppink3]Create new branch for selected repos #.[/]" },
-        { "[green]-f, --find[/]", "[green]Find all GIT repos in current folder.[/]" },
-        { "[deeppink1_1]-dl, --dir-list <path>[/]", "[deeppink1_1]List saved directories #.[/]" },
-        { "[gold3]-sv, --saved[/]", "[gold3]Show saved info #.[/]" },
-        { "[mistyrose1]-sd, --show-diff[/]", "[mistyrose1]Show diff against <branch name> or remote if <branch name> not specified #.[/]" },
-        { "[deeppink4_2]-dv, --details-verbose[/]", "[deeppink4_2]Show verbose details of the repo #.[/]" },
-        { "[yellow4_1]-sr, --show-repo-queue[/]", "[yellow4_1]Show found repos #.[/]" },
-        { "[sandybrown]-sc, --show-commit-queue[/]", "[sandybrown]Show current commit queue #.[/]" },
-        { "[deeppink1_1]-sb, --show-branch-queue[/]", "[deeppink1_1]Show current branch queue #.[/]" },
-        { "[gold3]-se, --select[/]", "[gold3]Select repos to commit #.[/]" },
-        { "[lightsalmon3_1]-su, --set-upstream[/]", "[lightsalmon3_1]Set the upstream branch for selected repos#.[/]" },
-        { "[deeppink3]-bcsp, --branch-checkout-stage-push[/]", "[deeppink3]Create new branch for selected repos, checkout branch, stage all and push #.[/]" },
-        { "[deeppink4_2]-dc, --delete-credentials[/]", "[deeppink4_2]Delete saved credentials #.[/]" },
-        { "[yellow]-h, --help[/]", "[yellow]Show command table #.[/]" },
-        { "[red]-e, --exit[/]", "[red]Exit (Also ctrl + c)[/]" },
+        { "[yellow2]-b, --branch[/]", "[yellow2]Create new branch for selected repos #.[/]" },
+        { "[chartreuse3]-f, --find[/]", "[chartreuse3]Find all GIT repos in current folder.[/]" },
+        { "[chartreuse3_1]-dl, --dir-list <path>[/]", "[chartreuse3_1]List saved directories #.[/]" },
+        { "[seagreen2]-sv, --saved[/]", "[seagreen2]Show saved info #.[/]" },
+        { "[seagreen1_1]-sd, --show-diff (-v for verbose)[/]", "[seagreen1_1]Show local changes in current branch #.[/]" },
+        { "[aquamarine1]-sr, --show-repo-queue[/]", "[aquamarine1]Show found repos #.[/]" },
+        { "[skyblue1]-sc, --show-commit-queue[/]", "[skyblue1]Show current commit queue #.[/]" },
+        { "[deepskyblue2]-sb, --show-branch-queue[/]", "[deepskyblue2]Show current branch queue #.[/]" },
+        { "[violet]-se, --select[/]", "[violet]Select repos to commit #.[/]" },
+        { "[mediumpurple2]-su, --set-upstream[/]", "[mediumpurple2]Set the upstream branch for selected repos#.[/]" },
+        // { "[magenta3_2]-bcsp, --branch-checkout-stage-push[/]", "[magenta3_2]Create new branch for selected repos, checkout branch, stage all and push #.[/]" },
+        { "[hotpink2]-dc, --delete-credentials[/]", "[hotpink2]Delete saved credentials #.[/]" },
+        { "[deeppink3_1]-h, --help[/]", "[deeppink3_1]Show command table #.[/]" },
+        { "[deeppink4_2]-e, --exit[/]", "[deeppink4_2]Exit (Also ctrl + c)[/]" },
     };
     // private StateModel _configManager.state;
     private List<string> _dir;
     private ConfigManager _configManager;
 
-    public BigService()
+    public MicroGitService()
     {
         Console.CancelKeyPress += delegate {
             Environment.Exit(0);
@@ -83,7 +86,7 @@ public class BigService
     {
         //TODO: Remove this path
         _dir = new() { "C:\\Users\\ksups\\PROGRAMS\\JS" };//Directory.GetCurrentDirectory() };
-        FindState(_dir);
+        FindState(_configManager.GetDirectories());
         
         var choice = GetInput();
         
@@ -110,6 +113,8 @@ public class BigService
             return;
         }
         
+        var verbose = MicroGitHelpers.IsVerbose(args);
+        
         switch (args[0])
         {
             case "--creds":
@@ -118,15 +123,19 @@ public class BigService
                 break;
             case "--find":
             case "-f":
-                FindState(_dir);
+                FindState(_configManager.GetDirectories());
+                break;
+            case "--fetch":
+            case "-fe":
+                FetchState();
+                break;
+            case "--pull":
+            case "-pu":
+                PullState();
                 break;
             case "--details":
             case "-d":
-                FindDetailState();
-                break;
-            case "--details-verbose":
-            case "-dv":
-                FindDetailState(true);
+                FindDetailState(verbose);
                 break;
             case "--dir":
             case "-dr":
@@ -166,7 +175,7 @@ public class BigService
                 break;
             case "--show-diff":
             case "-sd":
-                ShowDiff();
+                ShowDiff(verbose);
                 break;
             case "--set-upstream":
             case "-su":
@@ -201,6 +210,71 @@ public class BigService
         }
     }
 
+    private void FetchState()
+    {
+        try
+        {
+            var selectedRepos = Utils<string>.RepoSelectPrompt("Select repos you want to fetch:", _configManager);
+            foreach (var repoPath in selectedRepos)
+            {
+                RepoService.FetchLogic(repoPath, _configManager);
+                AnsiConsole.MarkupLine($"[green]{Utils<string>.NameFromPath(repoPath)} Done![/]\n");
+            }
+            
+            AnsiConsole.MarkupLine($"[green]Done![/]\n");
+        }
+        catch (Exception e)
+        {
+            Utils<string>.WriteErrorIssue(e);
+        }
+    }
+
+    private void PullState()
+    {
+        try
+        {
+            var mergeOptions = _configManager.GetMergeOptions();
+            var selectedRepos = Utils<string>.RepoSelectPrompt("Select repos you want to fetch:", _configManager);
+            var useSavedMergeOptions = false;
+
+            if (mergeOptions != null)
+            {
+                // TODO: print merge options
+                // AnsiConsole.Write(JsonSerializer.Serialize(mergeOptions).EscapeMarkup());
+                useSavedMergeOptions = Utils<string>.CustomPrompt<bool>("Do you want to use these saved merge options?", "Save options", new List<bool> { true, false });
+            }
+
+            if (mergeOptions == null || !useSavedMergeOptions)
+            {
+                var fastForwardStrategy = Utils<string>.CustomPrompt<string>("Select fast forward strategy for all repos:", "Select strategy",
+                    new List<string> { "Fast forward if possible, otherwise, don't fast forward (Default)", "Only fast forward", "Do not fast forward" });
+                var mergeFavor = Utils<string>.CustomPrompt<string>("Select merge favor for all repos:", "Select favor",
+                    new List<string> { "Create merge file (Default)", "Current branch", "Their branch" });
+                var conflictStrategy = Utils<string>.CustomPrompt<string>("Select conflict strategy for all repos:", "Select strategy",
+                    new List<string> { "Create merge files for conflicts (Default)", "Keep theirs", "Keep mine" });
+                var saveOptions = Utils<string>.CustomPrompt<bool>("Do you want to save these options?", "Save options", new List<bool> { true, false });
+                mergeOptions = Utils<string>.ParseMergeOptions(fastForwardStrategy, mergeFavor, conflictStrategy);
+            
+                if (saveOptions)
+                {
+                    _configManager.SetMergeOptions(mergeOptions);
+                }
+            }
+            
+            foreach (var repoPath in selectedRepos)
+            {
+                RepoService.PullLogic(repoPath, mergeOptions, _configManager);
+                AnsiConsole.MarkupLine($"[green]{Utils<string>.NameFromPath(repoPath)} Done![/]\n");
+            }
+            
+            AnsiConsole.MarkupLine($"[green]Done![/]\n");
+        }
+        catch (Exception e)
+        {
+            Utils<string>.WriteErrorIssue(e);
+        }
+    }
+
     private void SetUpstreamBranches()
     {
         try
@@ -210,151 +284,19 @@ public class BigService
             var createdBranchName = string.Empty;
             var selectedRepos = Utils<string>.RepoSelectPrompt("Select repos you want to set upstream branches for:", _configManager);
 
-            var root = new Tree("Diffs");
             foreach (var repoPath in selectedRepos)
             {
-                var repoName = repoPath.Split('\\').Last();
-                var repoNode = root.AddNode($"[yellow]{repoName}[/]");
-
-                createdBranchName = SetUpstreamLogic(repoPath, repoName, createdBranchName, createNewRemote, 
-                    ref usePreviousBranchName);
+                var repoName = Utils<string>.NameFromPath(repoPath);
+                createdBranchName = MicroGitHelpers.SetUpstreamLogic(repoPath, repoName, createdBranchName, createNewRemote, 
+                    _configManager, ref usePreviousBranchName);
             }
+            
+            AnsiConsole.MarkupLine($"[green]Done![/]\n");
         }
         catch (Exception e)
         {
             Utils<string>.WriteErrorIssue(e);
         }
-    }
-
-    private string SetUpstreamLogic(string repoPath, string repoName, string createdBranchName, string createNewRemote,
-        ref bool usePreviousBranchName)
-    {
-        var remoteBranchName = string.Empty;
-        using (var repo = new Repository(repoPath))
-        {
-            // var remotes = repo.Network.Remotes;
-            var allRemoteBranches = RepoService.GetAllRemoteBranches(repo, _configManager);
-            var remotes = allRemoteBranches.Select(elem => elem.CanonicalName
-                    .Replace("refs/heads/", "")).ToList();
-            if (!remotes.Any())
-            {
-                AnsiConsole.MarkupLine($"[red]No remotes for {repoName}.[/]");
-                var shouldFetch = Utils<string>.CustomPrompt("Would you like to try to set upstream to origin/main?",
-                    "Set upstream", new() { "Yes", "No" });
-                if (string.Equals(shouldFetch, "Yes"))
-                {
-                    AnsiConsole.MarkupLine("What is the remote url?");
-                    AnsiConsole.Markup("url >> ");
-                    var remoteUrl = Console.ReadLine();
-                    var remote = repo.Network.Remotes.Add("origin", remoteUrl ?? "");
-                }
-            }
-            else
-            {
-                if (!string.IsNullOrEmpty(createdBranchName))
-                {
-                    var selction = Utils<string>.CustomPrompt($"Do you want to re-use the branch name {createdBranchName}?:",
-                        "Set upstream", new() { "Yes", "No" });
-                    usePreviousBranchName = string.Equals(selction, "Yes", StringComparison.OrdinalIgnoreCase);
-                }
-
-                if (!usePreviousBranchName)
-                {
-                    // Get the remote branch name (or create a new one)
-                    var options = remotes.ToList();
-                    options.Add(createNewRemote);
-
-                    remoteBranchName = RepoService.GetRemoteBranchName(repoName, remoteBranchName, options, repo);
-
-                    // if (string.Equals(remoteBranchName, createNewRemote, StringComparison.OrdinalIgnoreCase))
-                    // {
-                        remoteBranchName = CreateRemoteBranchBasedOn(repoPath, remotes);
-                    // }
-
-                    if (string.IsNullOrEmpty(createdBranchName))
-                        createdBranchName = remoteBranchName;
-                }
-                else
-                {
-                    remoteBranchName = createdBranchName;
-                }
-
-                // Get the upstream branch
-                var localBranch = RepoService.GetLocalBranch(repo);
-                var trackedBranch = localBranch.TrackedBranch;
-
-                if (trackedBranch == null)
-                {
-                    var upstreamBranchName = repo.Head.CanonicalName;
-                    if (upstreamBranchName == null)
-                    {
-                        upstreamBranchName = CreateRemoteBranchBasedOn(repoPath, remotes);
-                    }
-                    repo.Branches.Update(repo.Head, updater =>
-                    {
-                        updater.Remote = repo.Network.Remotes[remoteBranchName].Name;
-                        updater.UpstreamBranch = upstreamBranchName;
-                    });
-                    localBranch = RepoService.GetLocalBranch(repo);
-                }
-
-                repo.Branches.Update(localBranch, b =>
-                    b.TrackedBranch = localBranch.TrackedBranch.CanonicalName);
-            }
-        }
-
-        return createdBranchName;
-    }
-
-    private string CreateRemoteBranchBasedOn(string repoPath, List<string> remotes)
-    {
-        string selectNewBranch = "Select a new branch";
-        var setTrackingBranch = "Set a tracking branch";
-        string remoteBranchName = String.Empty;
-        string basedOnBranch = String.Empty;
-        bool isValidRemoteBranch = false;
-        while (!isValidRemoteBranch)
-        {
-            
-            
-            /*
-             * TODO:
-             * 1. Get the remote branch name
-             * 2. Get the branch to base the new remote branch on
-             * 3. Create the new remote branch
-             * 4. Set the upstream branch
-             * 5. Set the tracking branch
-             * 6. Push the new remote branch
-             */
-            
-            
-            remoteBranchName = Utils<string>.GetInput("Enter the name of the new remote branch:");
-            basedOnBranch = Utils<string>.CustomPrompt("Select the branch you want to base the new remote branch on:",
-                "Select remote", remotes.ToList());
-            var remoteBranch = RepoService.GetRemoteBranch(basedOnBranch, repoPath);
-            if (remoteBranch != null && remoteBranch.IsTracking)
-            {
-                break;
-            }
-            AnsiConsole.MarkupLine($"[red]The branch {basedOnBranch} is not tracking a branch.[/]");
-            var selection = Utils<string>.CustomPrompt("Would you like to:",
-                "Select remote", new() { selectNewBranch, setTrackingBranch });
-
-            // switch (selection)
-            // {
-            //     case "Select a new branch":
-            //         break;
-            //     case "Set a tracking branch":
-            //         var trackingBranch = Utils<string>.CustomPrompt("Select the branch you want to track:",
-            //             "Select remote", remotes.ToList());
-            //         RepoService.SetTrackingBranch(trackingBranch, repoPath);
-            //         break;
-            // }
-        }
-        
-        remoteBranchName =
-            RepoService.CreateRemoteBranch(remoteBranchName, basedOnBranch, repoPath, _configManager);
-        return remoteBranchName;
     }
 
     private void DeleteCredentials()
@@ -449,7 +391,8 @@ public class BigService
         // skip first arg and join the rest
         var dr = string.Join(" ", args.Skip(1));
         _configManager.AddDirectory(dr);
-        AnsiConsole.Markup($"[greenyellow]Directory set to {_dir}[/]\n");
+        AnsiConsole.Markup($"[greenyellow]Tracked directories now include: [/]\n");
+        ListDirectories();
     }
     
     private void ListDirectories()
@@ -521,70 +464,85 @@ public class BigService
         
     }
 
-    private void ShowDiff()
+    private void ShowDiff(bool verbose = false)
     {
         // Show diff of selected repos compared to remote
 
-        var selectedRepos = Utils<string>.RepoSelectPrompt("Select repos to show diff for", _configManager);
-
-        var root = new Tree("Diffs");
-        foreach (var repoPath in selectedRepos)
+        try
         {
-            var repoName = repoPath.Split('\\').Last();
-            var repoNode = root.AddNode($"[yellow]{repoName}[/]");
-            
-            using (var repo = new Repository(repoPath))
+            var selectedRepos = Utils<string>.RepoSelectPrompt("Select repos to show diff for", _configManager);
+
+            var root = new Tree("Diffs");
+            foreach (var repoPath in selectedRepos)
             {
+                var repoName = Utils<string>.NameFromPath(repoPath);
+                var repoNode = root.AddNode($"[yellow]{repoName}[/]");
+
+                using var repo = new Repository(repoPath);
                 var innerTable = new Table()
                     .RoundedBorder();
                 innerTable.AddColumn("Details");
-                 
-                // Get the current branch
-                Branch currentBranch = repo.Head;
+                var status = repo.RetrieveStatus();
 
-                // Get the upstream branch
-                var upstream = currentBranch.TrackedBranch;
-
-                if (upstream == null)
-                {
-                    innerTable.AddRow("[red]No upstream branch[/]");
-                    repoNode.AddNode(innerTable);
-                    continue;
-                }
-
-                // Get the diff between the current branch and the upstream branch
-                var diff = repo.Diff.Compare<Patch>(currentBranch.Tip.Tree, upstream.Tip.Tree);
+                var fileRow = innerTable.AddRow($"[green]File Changes[/]");
                 
-                if (diff.Count() == 0)
-                {
-                    innerTable.AddRow($"[red]{repoPath}[/] [yellow]has no changes to commit[/]\n");
-                    repoNode.AddNode(innerTable);
-                    continue;
-                }
+                var totalChanged = status.Modified.Count() + status.Added.Count() + status.Removed.Count();
+                fileRow.AddRow($"[green]Total changed files: [/][darkorange]{totalChanged}[/]");
                 
-                // Iterate through the diffs and print the file names
-                foreach (var pec in diff)
+                foreach (var item in status)
                 {
-                    innerTable.AddRow($"[red]{pec.Path} = {pec.LinesAdded + pec.LinesDeleted} ({pec.LinesAdded}+ and {pec.LinesDeleted}-)[/]");
+                    fileRow.AddRow($"[green]{item.FilePath}[/] [darkorange]{item.State}[/]");
+
+                    var sb = new StringBuilder();
+                    if (item.State == FileStatus.ModifiedInWorkdir || item.State == FileStatus.ModifiedInIndex) 
+                    {
+                        var patch = repo.Diff.Compare<Patch> (new List<string>() { item.FilePath });
+                        
+                        foreach (var pec in patch)
+                        {
+                            innerTable.AddRow($"[red]{pec.Path} = {pec.LinesAdded + pec.LinesDeleted} ({pec.LinesAdded}+ and {pec.LinesDeleted}-)[/]");
+                        }
+
+                        if (!verbose) continue;
+                        sb.AppendLine("[red]~~~~ Patch file ~~~~[/]");
+                        var lines = patch.Content.Split("\n").ToList();
+                        foreach (var line in lines)
+                        {
+                            if (line.StartsWith("+"))
+                            {
+                                sb.AppendLine($"[green]{line.EscapeMarkup()}[/]");
+                            }
+                            else if (line.StartsWith("-"))
+                            {
+                                sb.AppendLine($"[deeppink3]{line.EscapeMarkup()}[/]");
+                
+                            }
+                            else
+                            {
+                                sb.AppendLine(line.EscapeMarkup());
+                            }
+                        }
+
+                        if (sb.Length > 0)
+                        {
+                            fileRow.AddRow(new Panel(sb.ToString()));
+                        }
+                        else
+                        {
+                            fileRow.AddRow(new Panel("[yellow]No changes[/]"));
+                        }
+                    }
                 }
                 
                 repoNode.AddNode(innerTable);
             }
-
-            // var innerTable = new Table()
-            //     .RoundedBorder()
-            //     .AddColumn("Files");
-            //
-            // foreach (var pec in patch)
-            // {
-            //     innerTable.AddRow($"[red]{pec.Path} = {pec.LinesAdded + pec.LinesDeleted} ({pec.LinesAdded}+ and {pec.LinesDeleted}-)[/]");
-            // }
-            //
-            // repoNode.AddNode(innerTable);
             
+            AnsiConsole.Write(root);
         }
-        
-        AnsiConsole.Write(root);
+        catch (Exception e)
+        {
+            Utils<string>.WriteErrorIssue(e);
+        }
     }
 
     private void BranchState(bool shouldCheckout = false, bool shouldStageAll = false, bool shouldPush = false)
@@ -748,24 +706,19 @@ public class BigService
         
         // Create the tree
         var root = new Tree("Repository Details");
-        
-        var colors = new [] { "red", "palegreen1_1", "darkorange3_1", "gold3_1", "deeppink1_1", "lightsalmon1", "paleturquoise1" };
-        var random = new Random();
 
         foreach (var repo in _configManager.state.Repos)
         {
-            
             using var repository = new Repository(repo);
             var status = repository.RetrieveStatus();
             var files = status.Modified.Select(mods => mods.FilePath).ToList();
             
             var details = RepoService.GetRepoDetails(repo);
-            // get random color
-            var color = colors[random.Next(0, colors.Length)];
-            var repoNode = root.AddNode($"[{color}]{details.Info.Path}[/]");
+            var repoNode = root.AddNode($"[gold3_1]{details.Info.Path}[/]");
             var filesChanged = repoNode.AddNode($"[red3_1]Files Changed: {files.Count}[/]");
             var conflicts = repoNode.AddNode($"[deeppink3]Conflicts: {details.Index.Conflicts.Count()}[/]");
             var localBranch = repoNode.AddNode($"[deeppink3_1]Local Branch: {RepoService.GetLocalBranchName(repository)}[/]");
+            var trackedBranch = repoNode.AddNode($"[deeppink3_1]Tracking Branch: {RepoService.GetTrackedBranch(repository, RepoService.GetLocalBranchName(repository))}[/]");
             var branches = repoNode.AddNode($"[magenta3_1]Branches: {details.Branches.Count()}[/]");
             var stashes = repoNode.AddNode($"[magenta2]Stashes: {details.Stashes.Count()}[/]");
             var head = repoNode.AddNode($"[hotpink2]Head: {details.Head.RemoteName}[/]");
@@ -778,21 +731,21 @@ public class BigService
                 
                 foreach (var detailsBranch in details.Branches)
                 {
-                    branches.AddNode($"[{color}]Name: {detailsBranch.FriendlyName}[/]");
-                    branches.AddNode($"[{color}]Is Remote: {detailsBranch.IsRemote}[/]");
-                    branches.AddNode($"[{color}]Is CurrentRepository Head: {detailsBranch.IsCurrentRepositoryHead}[/]");
-                    branches.AddNode($"[{color}]Tip: {detailsBranch.Tip}[/]");
+                    branches.AddNode($"[grey78]Name: {detailsBranch.FriendlyName}[/]");
+                    branches.AddNode($"[grey82]Is Remote: {detailsBranch.IsRemote}[/]");
+                    branches.AddNode($"[grey85]Is CurrentRepository Head: {detailsBranch.IsCurrentRepositoryHead}[/]");
+                    branches.AddNode($"[grey89]Tip: {detailsBranch.Tip}[/]");
                 }
                 
                 foreach (var detailsStash in details.Stashes)
                 {
-                    stashes.AddNode($"[{color}]Message: {detailsStash.Message}[/]");
-                    stashes.AddNode($"[{color}]Stasher: {detailsStash.Index.Author.Name}[/]");
-                    stashes.AddNode($"[{color}]Stashed When: {detailsStash.WorkTree.Author.When}[/]");
-                    var notesNode = stashes.AddNode($"[{color}]Notes:[/]");
+                    stashes.AddNode($"[yellow1]Message: {detailsStash.Message}[/]");
+                    stashes.AddNode($"[lightgoldenrod1]Stasher: {detailsStash.Index.Author.Name}[/]");
+                    stashes.AddNode($"[khaki1]Stashed When: {detailsStash.WorkTree.Author.When}[/]");
+                    var notesNode = stashes.AddNode($"[wheat1]Notes:[/]");
                     foreach (var note in  detailsStash.Index.Notes)
                     {
-                        notesNode.AddNode($"[{color}]Note: {note.Message}[/]");
+                        notesNode.AddNode($"[cornsilk1]Note: {note.Message}[/]");
                     }
                 }
                 

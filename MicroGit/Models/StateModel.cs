@@ -1,4 +1,6 @@
-﻿namespace MicroGit;
+﻿using LibGit2Sharp;
+
+namespace MicroGit;
 
 public class StateModel
 {
@@ -10,4 +12,6 @@ public class StateModel
     public Dictionary<string, string> BranchQueue { get; set; } = new();
     public List<string> Directories { get; set; } = new();
     public List<string> CurrentDirectories { get; set; } = new();
+    
+    public MergeOptions? MergeOptions { get; set; }
 }
