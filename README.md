@@ -3,7 +3,7 @@
 
 ## Easily scan directories to find repos
 
-![image](https://user-images.githubusercontent.com/38538913/213952672-02ca3286-fe2f-45e2-948b-7b9407afa3f5.png)
+![image](https://user-images.githubusercontent.com/38538913/214205543-bcd03463-8e9c-41ae-9ede-34511e80328a.png)
 
 ## View Details and Verbose Details about each repository
 ### -d 
