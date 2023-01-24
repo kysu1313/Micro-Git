@@ -48,8 +48,10 @@ public class ConfigManager
         {
             state.Credentials = new CredentialsModel();
         }
-        state.Credentials.Username = StringCipher.Encrypt(username, _pf);
-        state.Credentials.PersonalAccessToken = StringCipher.Encrypt(personalAccessToken, _pf);
+        state.Credentials.Username = string.IsNullOrEmpty(username) ? "" : 
+            StringCipher.Encrypt(username, _pf);
+        state.Credentials.PersonalAccessToken = string.IsNullOrEmpty(personalAccessToken) ? "" : 
+            StringCipher.Encrypt(personalAccessToken, _pf);
         if (saveToFile)
         {
             state.Credentials.SavedToFile = true;
@@ -74,7 +76,17 @@ public class ConfigManager
         state.Credentials.RemoteHost = type.ToString();
         Save();
     }
-    
+
+    public RemoteTypes? GetRemoteType()
+    {
+        if (Enum.TryParse<RemoteTypes>(state.Credentials.RemoteHost, out var val))
+        {
+            return val;
+        }
+
+        return null;
+    }
+
     public int GetDirCount()
     {
         return state?.Directories?.Count ?? 0;

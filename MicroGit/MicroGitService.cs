@@ -24,7 +24,6 @@ public class MicroGitService
         { "[darkorange3_1]-fe, --fetch[/]", "[darkorange3_1]Fetch remote changes for selected branches #.[/]" },
         { "[darkorange3]-pu, --pull[/]", "[darkorange3]Pull remote changes for selected branches #.[/]" },
         { "[lightsalmon3_1]-d, --details (-v for verbose)[/]", "[lightsalmon3_1]Show details of the repo #.[/]" },
-        { "[lightgoldenrod3]-th, --token-help[/]", "[lightgoldenrod3]Show instructions on how to create a Personal Access Token for GitHub #.[/]" },
         { "[orange3]-bc, --branch-checkout[/]", "[orange3]Create new branch and check it out for selected repos #.[/]" },
         { "[gold3_1]-dr, --dir <path>[/]", "[gold3_1]Set the directory to search from #.[/]" },
         { "[yellow3_1]-da, --dir-add <path>[/]", "[yellow3_1]Add additional directories to be searched #.[/]" },
@@ -44,12 +43,10 @@ public class MicroGitService
         { "[deepskyblue2]-sb, --show-branch-queue[/]", "[deepskyblue2]Show current branch queue #.[/]" },
         { "[violet]-se, --select[/]", "[violet]Select repos to commit #.[/]" },
         { "[mediumpurple2]-su, --set-upstream[/]", "[mediumpurple2]Set the upstream branch for selected repos#.[/]" },
-        // { "[magenta3_2]-bcsp, --branch-checkout-stage-push[/]", "[magenta3_2]Create new branch for selected repos, checkout branch, stage all and push #.[/]" },
         { "[hotpink2]-dc, --delete-credentials[/]", "[hotpink2]Delete saved credentials #.[/]" },
         { "[deeppink3_1]-h, --help[/]", "[deeppink3_1]Show command table #.[/]" },
         { "[deeppink4_2]-e, --exit[/]", "[deeppink4_2]Exit (Also ctrl + c)[/]" },
     };
-    // private StateModel _configManager.state;
     private List<string> _dir;
     private ConfigManager _configManager;
 
@@ -85,23 +82,26 @@ public class MicroGitService
     public void MainLoop()
     {
         //TODO: Remove this path
-        _dir = new() { "C:\\Users\\ksups\\PROGRAMS\\JS" };//Directory.GetCurrentDirectory() };
-        FindState(_configManager.GetDirectories());
+        _dir = new() { Directory.GetCurrentDirectory() };
+        FindState(_dir);
         
+        HistoryQueue.DetectArrowKeyPress();
+        HistoryQueue._keyListenThread.Start();
         var choice = GetInput();
         
         while (!string.Equals(choice[0], "--exit"))
         {
             ParseInput(choice);
+            HistoryQueue._stopThread = false;
             choice = GetInput();
         }
     }
     
-    private static string[] GetInput()
+    private string[] GetInput()
     {
         Console.Write(">> ");
         var input = Console.ReadLine();
-        
+        HistoryQueue._stopThread = true;
         return input?.Split(' ').Select(i => i = i.Trim()).ToArray() ?? Array.Empty<string>();
     }
     
@@ -113,6 +113,7 @@ public class MicroGitService
             return;
         }
         
+        HistoryQueue.PushCommand(args);
         var verbose = MicroGitHelpers.IsVerbose(args);
         
         switch (args[0])
@@ -311,15 +312,14 @@ public class MicroGitService
             RemoteTypes.GitHub, RemoteTypes.GitLab, RemoteTypes.TFS
         });
 
-        if (string.Equals(remoteHost, RemoteTypes.TFS.ToString()))
+        _configManager.SetRemoteType(remoteHost);
+        if (remoteHost == RemoteTypes.TFS)
         {
             AnsiConsole.Markup("[green]I'll use your system credentials to authenticate![/]\n");
-            _configManager.SetRemoteType(RemoteTypes.TFS);
+            AnsiConsole.Markup("[green]Done![/]\n");
             return;
         }
 
-        _configManager.SetRemoteType(remoteHost);
-        
         var saveCreds = Utils<string>.YesNoSelectPrompt("Do you want to save your credentials? (Recommended) They will be encrypted.");
         bool shouldSave = string.Equals(saveCreds, "Yes", StringComparison.OrdinalIgnoreCase);
         AnsiConsole.Markup("[green]Enter your GIT username[/]");
@@ -415,17 +415,18 @@ public class MicroGitService
     {
         try
         {
-            if (string.IsNullOrEmpty(_configManager.GetUsername()) || 
-                string.IsNullOrEmpty(_configManager.GetPersonalAccessToken()))
+            if ((string.IsNullOrEmpty(_configManager.GetUsername()) ||
+                 string.IsNullOrEmpty(_configManager.GetPersonalAccessToken())) &&
+                _configManager.GetRemoteType() != RemoteTypes.TFS)
             {
                 AnsiConsole.Markup("[red]No credentials set. Use --creds or -cr to set credentials[/]\n");
                 return;
             }
         
-            if (_configManager.state.CommitQueue.Count == 0)
-            {
+            // if (_configManager.state.CommitQueue.Count == 0)
+            // {
                 SelectState();
-            }
+            // }
         
             var commitMessage = string.Join(" ", args.Skip(1));
         
@@ -471,71 +472,77 @@ public class MicroGitService
         try
         {
             var selectedRepos = Utils<string>.RepoSelectPrompt("Select repos to show diff for", _configManager);
-
             var root = new Tree("Diffs");
-            foreach (var repoPath in selectedRepos)
+            AnsiConsole.Status()
+                .Start("Thinking...", ctx => 
             {
-                var repoName = Utils<string>.NameFromPath(repoPath);
-                var repoNode = root.AddNode($"[yellow]{repoName}[/]");
-
-                using var repo = new Repository(repoPath);
-                var innerTable = new Table()
-                    .RoundedBorder();
-                innerTable.AddColumn("Details");
-                var status = repo.RetrieveStatus();
-
-                var fileRow = innerTable.AddRow($"[green]File Changes[/]");
-                
-                var totalChanged = status.Modified.Count() + status.Added.Count() + status.Removed.Count();
-                fileRow.AddRow($"[green]Total changed files: [/][darkorange]{totalChanged}[/]");
-                
-                foreach (var item in status)
+                foreach (var repoPath in selectedRepos)
                 {
-                    fileRow.AddRow($"[green]{item.FilePath}[/] [darkorange]{item.State}[/]");
+                    var repoName = Utils<string>.NameFromPath(repoPath);
+                    var repoNode = root.AddNode($"[yellow]{repoName}[/]");
 
-                    var sb = new StringBuilder();
-                    if (item.State == FileStatus.ModifiedInWorkdir || item.State == FileStatus.ModifiedInIndex) 
+                    using var repo = new Repository(repoPath);
+                    var innerTable = new Table()
+                        .RoundedBorder();
+                    innerTable.AddColumn("Details");
+                    var status = repo.RetrieveStatus();
+
+                    var fileRow = innerTable.AddRow($"[green]File Changes[/]");
+                    
+                    var totalChanged = status.Modified.Count() + status.Added.Count() + status.Removed.Count();
+                    fileRow.AddRow($"[green]Total changed files: [/][darkorange]{totalChanged}[/]");
+                    
+                    foreach (var item in status)
                     {
-                        var patch = repo.Diff.Compare<Patch> (new List<string>() { item.FilePath });
-                        
-                        foreach (var pec in patch)
-                        {
-                            innerTable.AddRow($"[red]{pec.Path} = {pec.LinesAdded + pec.LinesDeleted} ({pec.LinesAdded}+ and {pec.LinesDeleted}-)[/]");
-                        }
+                        fileRow.AddRow($"[green]{item.FilePath}[/] [darkorange]{item.State}[/]");
 
-                        if (!verbose) continue;
-                        sb.AppendLine("[red]~~~~ Patch file ~~~~[/]");
-                        var lines = patch.Content.Split("\n").ToList();
-                        foreach (var line in lines)
+                        var sb = new StringBuilder();
+                        if (item.State == FileStatus.ModifiedInWorkdir || item.State == FileStatus.ModifiedInIndex) 
                         {
-                            if (line.StartsWith("+"))
+                            var patch = repo.Diff.Compare<Patch> (new List<string>() { item.FilePath });
+                            
+                            foreach (var pec in patch)
                             {
-                                sb.AppendLine($"[green]{line.EscapeMarkup()}[/]");
+                                innerTable.AddRow($"[red]{pec.Path} = {pec.LinesAdded + pec.LinesDeleted} ({pec.LinesAdded}+ and {pec.LinesDeleted}-)[/]");
                             }
-                            else if (line.StartsWith("-"))
+
+                            if (!verbose) continue;
+                            sb.AppendLine("[red]~~~~ Patch file ~~~~[/]");
+                            var lines = patch.Content.Split("\n").ToList();
+                            foreach (var line in lines)
                             {
-                                sb.AppendLine($"[deeppink3]{line.EscapeMarkup()}[/]");
-                
+                                if (line.StartsWith("+"))
+                                {
+                                    sb.AppendLine($"[green]{line.EscapeMarkup()}[/]");
+                                }
+                                else if (line.StartsWith("-"))
+                                {
+                                    sb.AppendLine($"[deeppink3]{line.EscapeMarkup()}[/]");
+                    
+                                }
+                                else
+                                {
+                                    sb.AppendLine(line.EscapeMarkup());
+                                }
+                            }
+
+                            if (sb.Length > 0)
+                            {
+                                fileRow.AddRow(new Panel(sb.ToString()));
                             }
                             else
                             {
-                                sb.AppendLine(line.EscapeMarkup());
+                                fileRow.AddRow(new Panel("[yellow]No changes[/]"));
                             }
                         }
-
-                        if (sb.Length > 0)
-                        {
-                            fileRow.AddRow(new Panel(sb.ToString()));
-                        }
-                        else
-                        {
-                            fileRow.AddRow(new Panel("[yellow]No changes[/]"));
-                        }
                     }
+                    
+                    repoNode.AddNode(innerTable);
                 }
-                
-                repoNode.AddNode(innerTable);
-            }
+                ctx.Status("Thinking some more");
+                ctx.Spinner(Spinner.Known.Star);
+                ctx.SpinnerStyle(Style.Parse("red"));
+            });
             
             AnsiConsole.Write(root);
         }
@@ -680,13 +687,12 @@ public class MicroGitService
                     }
                     
                 }
-                // _configManager.state.Repos = RepoService.GetReposInCurrentDir(dir);
+                
                 RepoService.GetRemoteBranches(_configManager.state.Repos, _configManager.state.RemoteBranchQueue);
                 ctx.Status("Thinking some more");
                 ctx.Spinner(Spinner.Known.Star);
                 ctx.SpinnerStyle(Style.Parse("green"));
             });
-        // _configManager.state.Repos = RepoService.GetReposInCurrentDir(dir);
         
         if (_configManager.state.Repos.Count <= 0)
         {
@@ -703,84 +709,79 @@ public class MicroGitService
             AnsiConsole.MarkupLine("[red]Try passing the -a flag to search All sub directories.[/]\n");
             return;
         }
-        
+        var selectedRepos = Utils<string>.RepoSelectPrompt("Select repos to show details for", _configManager);
+        if (selectedRepos.Count <= 0)
+        {
+            AnsiConsole.MarkupLine("[red]No repos selected![/]\n");
+            return;
+        }
         // Create the tree
         var root = new Tree("Repository Details");
-
-        foreach (var repo in _configManager.state.Repos)
+        AnsiConsole.Status()
+            .Start("Thinking...", ctx => 
         {
-            using var repository = new Repository(repo);
-            var status = repository.RetrieveStatus();
-            var files = status.Modified.Select(mods => mods.FilePath).ToList();
-            
-            var details = RepoService.GetRepoDetails(repo);
-            var repoNode = root.AddNode($"[gold3_1]{details.Info.Path}[/]");
-            var filesChanged = repoNode.AddNode($"[red3_1]Files Changed: {files.Count}[/]");
-            var conflicts = repoNode.AddNode($"[deeppink3]Conflicts: {details.Index.Conflicts.Count()}[/]");
-            var localBranch = repoNode.AddNode($"[deeppink3_1]Local Branch: {RepoService.GetLocalBranchName(repository)}[/]");
-            var trackedBranch = repoNode.AddNode($"[deeppink3_1]Tracking Branch: {RepoService.GetTrackedBranch(repository, RepoService.GetLocalBranchName(repository))}[/]");
-            var branches = repoNode.AddNode($"[magenta3_1]Branches: {details.Branches.Count()}[/]");
-            var stashes = repoNode.AddNode($"[magenta2]Stashes: {details.Stashes.Count()}[/]");
-            var head = repoNode.AddNode($"[hotpink2]Head: {details.Head.RemoteName}[/]");
-
-            if (verbose)
+            foreach (var repo in selectedRepos)
             {
-                head.AddNode($"[hotpink2]Canonica lName: {details.Head.CanonicalName}[/]");
-                head.AddNode($"[hotpink2]Friendly Name: {details.Head.FriendlyName}[/]");
-                head.AddNode($"[hotpink2]Is Remote: {details.Head.IsRemote}[/]");
+                using var repository = new Repository(repo);
+                var status = repository.RetrieveStatus();
+                var files = status.Modified.Select(mods => mods.FilePath).ToList();
                 
-                foreach (var detailsBranch in details.Branches)
+                var details = RepoService.GetRepoDetails(repo);
+                var repoNode = root.AddNode($"[gold3_1]{details.Info.Path}[/]");
+                var filesChanged = repoNode.AddNode($"[red3_1]Files Changed: {files.Count}[/]");
+                var conflicts = repoNode.AddNode($"[deeppink3]Conflicts: {details.Index.Conflicts.Count()}[/]");
+                var localBranch = repoNode.AddNode($"[deeppink3_1]Local Branch: {RepoService.GetLocalBranchName(repository)}[/]");
+                var trackedBranch = repoNode.AddNode($"[deeppink3_1]Tracking Branch: {RepoService.GetTrackedBranch(repository, RepoService.GetLocalBranchName(repository))}[/]");
+                var branches = repoNode.AddNode($"[magenta3_1]Branches: {details.Branches.Count()}[/]");
+                var stashes = repoNode.AddNode($"[magenta2]Stashes: {details.Stashes.Count()}[/]");
+                var head = repoNode.AddNode($"[hotpink2]Head: {details.Head.RemoteName}[/]");
+
+                if (verbose)
                 {
-                    branches.AddNode($"[grey78]Name: {detailsBranch.FriendlyName}[/]");
-                    branches.AddNode($"[grey82]Is Remote: {detailsBranch.IsRemote}[/]");
-                    branches.AddNode($"[grey85]Is CurrentRepository Head: {detailsBranch.IsCurrentRepositoryHead}[/]");
-                    branches.AddNode($"[grey89]Tip: {detailsBranch.Tip}[/]");
-                }
-                
-                foreach (var detailsStash in details.Stashes)
-                {
-                    stashes.AddNode($"[yellow1]Message: {detailsStash.Message}[/]");
-                    stashes.AddNode($"[lightgoldenrod1]Stasher: {detailsStash.Index.Author.Name}[/]");
-                    stashes.AddNode($"[khaki1]Stashed When: {detailsStash.WorkTree.Author.When}[/]");
-                    var notesNode = stashes.AddNode($"[wheat1]Notes:[/]");
-                    foreach (var note in  detailsStash.Index.Notes)
+                    head.AddNode($"[hotpink2]Canonica lName: {details.Head.CanonicalName}[/]");
+                    head.AddNode($"[hotpink2]Friendly Name: {details.Head.FriendlyName}[/]");
+                    head.AddNode($"[hotpink2]Is Remote: {details.Head.IsRemote}[/]");
+                    
+                    foreach (var detailsBranch in details.Branches)
                     {
-                        notesNode.AddNode($"[cornsilk1]Note: {note.Message}[/]");
+                        branches.AddNode($"[grey78]Name: {detailsBranch.FriendlyName}[/]");
+                        branches.AddNode($"[grey82]Is Remote: {detailsBranch.IsRemote}[/]");
+                        branches.AddNode($"[grey85]Is CurrentRepository Head: {detailsBranch.IsCurrentRepositoryHead}[/]");
+                        branches.AddNode($"[grey89]Tip: {detailsBranch.Tip}[/]");
+                    }
+                    
+                    foreach (var detailsStash in details.Stashes)
+                    {
+                        stashes.AddNode($"[yellow1]Message: {detailsStash.Message}[/]");
+                        stashes.AddNode($"[lightgoldenrod1]Stasher: {detailsStash.Index.Author.Name}[/]");
+                        stashes.AddNode($"[khaki1]Stashed When: {detailsStash.WorkTree.Author.When}[/]");
+                        var notesNode = stashes.AddNode($"[wheat1]Notes:[/]");
+                        foreach (var note in  detailsStash.Index.Notes)
+                        {
+                            notesNode.AddNode($"[cornsilk1]Note: {note.Message}[/]");
+                        }
+                    }
+                    
+                    foreach (var detailsConflict in details.Index.Conflicts)
+                    {
+                        conflicts.AddNode($"[deeppink3]Path: {detailsConflict.Ours.Path}[/]");
+                        conflicts.AddNode($"[deeppink3]Ancestor Id: {detailsConflict.Ancestor.Id}[/]");
+                        conflicts.AddNode($"[deeppink3]Our Id: {detailsConflict.Ours.Id}[/]");
+                        conflicts.AddNode($"[deeppink3]Their Id: {detailsConflict.Theirs.Id}[/]");
+                        conflicts.AddNode($"[deeppink3]Our Stage Number: {detailsConflict.Ours.StageLevel}[/]");
+                    }
+                    
+                    foreach (var file in files)
+                    {
+                        filesChanged.AddNode($"[red3_1]File: {file}[/]");
                     }
                 }
-                
-                foreach (var detailsConflict in details.Index.Conflicts)
-                {
-                    conflicts.AddNode($"[deeppink3]Path: {detailsConflict.Ours.Path}[/]");
-                    conflicts.AddNode($"[deeppink3]Ancestor Id: {detailsConflict.Ancestor.Id}[/]");
-                    conflicts.AddNode($"[deeppink3]Our Id: {detailsConflict.Ours.Id}[/]");
-                    conflicts.AddNode($"[deeppink3]Their Id: {detailsConflict.Theirs.Id}[/]");
-                    conflicts.AddNode($"[deeppink3]Our Stage Number: {detailsConflict.Ours.StageLevel}[/]");
-                }
-                
-                foreach (var file in files)
-                {
-                    filesChanged.AddNode($"[red3_1]File: {file}[/]");
-                }
             }
-        }
-        // Add some nodes
-        // var foo = root.AddNode("[yellow]Foo[/]");
-        // var table = foo.AddNode(new Table()
-        //     .RoundedBorder()
-        //     .AddColumn("First")
-        //     .AddColumn("Second")
-        //     .AddRow("1", "2")
-        //     .AddRow("3", "4")
-        //     .AddRow("5", "6"));
-        //
-        // table.AddNode("[blue]Baz[/]");
-        // foo.AddNode("Qux");
-
-        // var bar = root.AddNode("[yellow]Bar[/]");
-        // bar.AddNode(new Calendar(2020, 12)
-        //     .AddCalendarEvent(2020, 12, 12)
-        //     .HideHeader());
+            RepoService.GetRemoteBranches(_configManager.state.Repos, _configManager.state.RemoteBranchQueue);
+            ctx.Status("Thinking some more");
+            ctx.Spinner(Spinner.Known.Star);
+            ctx.SpinnerStyle(Style.Parse("green"));
+        });
 
         // Render the tree
         AnsiConsole.Write(root);

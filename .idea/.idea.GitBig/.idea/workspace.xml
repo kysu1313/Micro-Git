@@ -4,7 +4,9 @@
     <projectFile>GitBig/GitBig.csproj</projectFile>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b2716631-568e-4363-879a-e467b4b7dfd9" name="Changes" comment="" />
+    <list default="true" id="f128019d-a2e6-4f14-88e5-25095466e8ce" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.GitBig/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.GitBig/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -24,30 +26,16 @@
       </list>
     </option>
   </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="main" />
+      </map>
+    </option>
+  </component>
   <component name="HighlightingSettingsPerFile">
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/195e9ca62d8beb8f526e3895232eb8afecd2d39dc5b24a2ad3737abf487394/Handlers.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/2379d7e7a778d928acd13c61f3efd51321620d3511d2f77559e8eca548fa8/Table.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/2df10504fb28f468f7b5325c9171e578d0ca9fb41e16f3dff7aa889415de8/DefaultCredentials.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/32281deb4f133933f86fee85517786ed0758b2115c94381f6f2e68f04978aa/Ensure.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/36e740b59df23626d207e72ea77e34298e53dd99db463eee529f8c416b5664/ThrowHelper.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/3fb093e29c135ccd8c61d19abd9ba8e2f7392926c5b44566ea41bf3f69ca195/StyleParser.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/595cf450b24bc46e958fd212812191582cf2dc185e4b6d14913d6415ded3e7/Network.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/59cb776da8ac7d55c1d755dfb6aaa71ce86d13d665bff5cd4d4de4f0eca3d7/AesImplementation.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/5b283215f5b5ffa8b39b636227e9f65873f5183c7eae5f39341e4f4aa5f384c9/PushOptions.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/5dfb9fe269fabcb5f4c3f724f4ec495ad74494a1f1568f2b1ed355aa5e86573/Proxy.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/6879c9ed20391a5ccfea363be5964fbcfe4f1dfde9558aa84b36df6b6ec92c6/List.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/69c54415347e4f60199c1f516ad3e15b33b2b4e7592e9ae6802edfe3c434e8/RemoteCallbacks.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/75aae034bae091974316a8d66dead0f1cce275dd2a9f97e41b816de8be272/UsernamePasswordCredentials.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/86affa4daeb781ae36ad5df2bc50a466638a25fb26de83e94b0715141/RijndaelManaged.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/93a479ad6b42c798e2927e7a5013a8cb351167484d3142f1c3b9d52d5fee8da/MarkupParser.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/9bad6a4baa963a1cc5fca23d63b74ba6113c5d9ea7e2dff055d2624e4468ca14/Credentials.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/9cfd47ca3efa6f81a5dc5e34c9c0d672c4322a9e73532e6b1402585f46cf78a/TableRowCollection.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/a051ba88e55832755e6a35f49b57ccf2f68e733e2cee6ca7efb23c95e7d97/Utf8Marshaler.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/a6b2d2577d8f892dd4edd3ea040b1764e0ee3edc71f2e9ae75d363706338bf/EncodingMarshaler.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/bd1d5c50194fea68ff3559c160230b0ab50f5acf4ce3061bffd6d62958e2182/ExceptionDispatchInfo.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/cbe45c6aa9cc5c284fd4b83729f415e512ebe348951ce1e7e346d55258be7151/Status.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/d058c687f4f32ee744b3b5b0f8b92bc4bc3c713fcca6c8813fdf9db8d67bdf36/Repository.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/e231402edc68fb8b3984fc6b6014a97e6a52e21e62883072279c90f7a16ba793/Objects.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="mock://C:/GIT/micro-git/GitBig/BigService.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="mock://C:/GIT/micro-git/GitBig/RepoService.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/MicroGit/ConfigManager.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/MicroGit/EncryptString.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/MicroGit/MicroGitService.cs" root0="FORCE_HIGHLIGHTING" />
@@ -55,7 +43,8 @@
     <setting file="file://$PROJECT_DIR$/MicroGit/Models/CredsModel.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/MicroGit/Models/StateModel.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/MicroGit/RepoService.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/MicroGit/Utils.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/6879c9ed20391a5ccfea363be5964fbcfe4f1dfde9558aa84b36df6b6ec92c6/List.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$APPLICATION_CONFIG_DIR$/resharper-host/SourcesCache/bd1d5c50194fea68ff3559c160230b0ab50f5acf4ce3061bffd6d62958e2182/ExceptionDispatchInfo.cs" root0="SKIP_HIGHLIGHTING" />
   </component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
@@ -65,16 +54,16 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "WebServerToolWindowFactoryState": "false",
-    "XThreadsFramesViewSplitterKey": "0.36057287",
-    "nodejs_package_manager_path": "npm",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;XThreadsFramesViewSplitterKey&quot;: &quot;0.36057287&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager">
     <configuration name="GitBig" type="DotNetProject" factoryName=".NET Project">
       <option name="EXE_PATH" value="" />
@@ -120,53 +109,25 @@
         <line-breakpoint enabled="true" type="DotNet Breakpoints">
           <url>file://$PROJECT_DIR$/MicroGit/ConfigManager.cs</url>
           <line>67</line>
-          <properties documentPath="C:\Users\ksups\PROGRAMS\C#\GitBig\MicroGit\ConfigManager.cs" initialLine="63" containingFunctionPresentation="method 'GetCreds'">
-            <startOffsets>
-              <option value="1757" />
-            </startOffsets>
-            <endOffsets>
-              <option value="1834" />
-            </endOffsets>
-          </properties>
+          <properties documentPath="C:\Users\ksups\PROGRAMS\C#\GitBig\MicroGit\ConfigManager.cs" initialLine="63" containingFunctionPresentation="method 'GetCreds'" />
           <option name="timeStamp" value="64" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="DotNet Breakpoints">
           <url>file://$PROJECT_DIR$/MicroGit/RepoService.cs</url>
           <line>47</line>
-          <properties documentPath="C:\Users\ksups\PROGRAMS\C#\GitBig\MicroGit\RepoService.cs" initialLine="47" containingFunctionPresentation="method 'PushChanges'">
-            <startOffsets>
-              <option value="1535" />
-            </startOffsets>
-            <endOffsets>
-              <option value="1748" />
-            </endOffsets>
-          </properties>
+          <properties documentPath="C:\Users\ksups\PROGRAMS\C#\GitBig\MicroGit\RepoService.cs" initialLine="47" containingFunctionPresentation="method 'PushChanges'" />
           <option name="timeStamp" value="67" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="DotNet Breakpoints">
           <url>file://$PROJECT_DIR$/MicroGit/MicroGitService.cs</url>
           <line>381</line>
-          <properties documentPath="C:\Users\ksups\PROGRAMS\C#\GitBig\MicroGit\MicroGitService.cs" initialLine="321" containingFunctionPresentation="method 'CommitChanges'">
-            <startOffsets>
-              <option value="14253" />
-            </startOffsets>
-            <endOffsets>
-              <option value="14305" />
-            </endOffsets>
-          </properties>
+          <properties documentPath="C:\Users\ksups\PROGRAMS\C#\GitBig\MicroGit\MicroGitService.cs" initialLine="321" containingFunctionPresentation="method 'CommitChanges'" />
           <option name="timeStamp" value="68" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="DotNet Breakpoints">
           <url>file://$PROJECT_DIR$/MicroGit/RepoService.cs</url>
           <line>78</line>
-          <properties documentPath="C:\Users\ksups\PROGRAMS\C#\GitBig\MicroGit\RepoService.cs" initialLine="68" containingFunctionPresentation="method 'PushChanges'">
-            <startOffsets>
-              <option value="2916" />
-            </startOffsets>
-            <endOffsets>
-              <option value="2968" />
-            </endOffsets>
-          </properties>
+          <properties documentPath="C:\Users\ksups\PROGRAMS\C#\GitBig\MicroGit\RepoService.cs" initialLine="68" containingFunctionPresentation="method 'PushChanges'" />
           <option name="timeStamp" value="69" />
         </line-breakpoint>
       </breakpoints>

@@ -154,15 +154,29 @@ public class RepoService
     {
         try
         {
-            var pushOptions = new PushOptions()
+            PushOptions? pushOptions = null;
+            var rt = config.GetRemoteType();
+            if (rt != null && rt == RemoteTypes.TFS)
             {
-                CredentialsProvider = (url, user, cred) =>
-                    new UsernamePasswordCredentials
-                    {
-                        Username = config.GetUsername(), 
-                        Password = config.GetPersonalAccessToken()
-                    }
-            };
+                
+                pushOptions = new PushOptions()
+                {
+                    CredentialsProvider = (url, user, cred) =>
+                        new DefaultCredentials()
+                }; 
+            }
+            else
+            {
+                pushOptions = new PushOptions()
+                {
+                    CredentialsProvider = (url, user, cred) =>
+                        new UsernamePasswordCredentials
+                        {
+                            Username = config.GetUsername(), 
+                            Password = config.GetPersonalAccessToken()
+                        }
+                }; 
+            }
             return pushOptions;
         }
         catch (Exception e)
@@ -177,15 +191,29 @@ public class RepoService
     {
         try
         {
-            var fetchOptions = new FetchOptions()
+            FetchOptions? fetchOptions = null;
+            var rt = config.GetRemoteType();
+            if (rt != null && rt == RemoteTypes.TFS)
             {
-                CredentialsProvider = (url, user, cred) =>
-                    new UsernamePasswordCredentials
-                    {
-                        Username = config.GetUsername(), 
-                        Password = config.GetPersonalAccessToken()
-                    }
-            };
+                
+                fetchOptions = new FetchOptions()
+                {
+                    CredentialsProvider = (url, user, cred) =>
+                        new DefaultCredentials()
+                }; 
+            }
+            else
+            {
+                fetchOptions = new FetchOptions()
+                {
+                    CredentialsProvider = (url, user, cred) =>
+                        new UsernamePasswordCredentials
+                        {
+                            Username = config.GetUsername(), 
+                            Password = config.GetPersonalAccessToken()
+                        }
+                }; 
+            }
             return fetchOptions;
         }
         catch (Exception e)
